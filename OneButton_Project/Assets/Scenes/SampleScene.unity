@@ -165,12 +165,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EndlessDirector
   controller: {fileID: 835283578}
   boss: {fileID: 1984216066}
-  baseCatchRate: 0.35
+  baseCatchRate: 0.25
   catchRatePerBoss: 0
   baseEscapeRate: 0.2
-  escapeRatePerBoss: 0.05
+  escapeRatePerBoss: 0
   baseBarHeight: 0.25
-  barHeightDecreasePerBoss: 0.05
+  barHeightDecreasePerBoss: 0
   minBarHeight: 0.15
   backgroundColor: {r: 0, g: 0, b: 0, a: 0.85}
   panelColor: {r: 0.15, g: 0.15, b: 0.15, a: 0.95}
@@ -870,7 +870,7 @@ MonoBehaviour:
   progress: 0.103
   catchRate: 0.45
   escapeRate: 0.8
-  drainDelay: 0.25
+  drainDelay: 0
   lossDelay: 0.8
   boss: {fileID: 1984216066}
 --- !u!4 &835283579
@@ -1019,6 +1019,22 @@ MonoBehaviour:
   bossIcon: {fileID: 866514450}
   progressBar: {fileID: 1473319077}
   enemyCounterText: {fileID: 1469896500}
+  rotationInterval: 3
+  rotationSpeed: 270
+  tickShakeInterval: 1
+  tickShakeIntensity: 10
+  tickShakeDuration: 0.1
+  gravityPhaseThreshold: 0.6
+  gravityOnDuration: 3
+  gravityOffDuration: 3
+  gravityAccel: 800
+  floatAccel: 300
+  bounceFactor: 0.4
+  tumbleImpulse: 120
+  tumbleDamping: 2
+  graceShakeMax: 8
+  deathShakeIntensity: 30
+  deathShakeDuration: 0.15
 --- !u!1 &1215651761
 GameObject:
   m_ObjectHideFlags: 0

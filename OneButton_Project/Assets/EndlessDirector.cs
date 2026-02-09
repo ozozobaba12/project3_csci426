@@ -35,6 +35,7 @@ public class EndlessDirector : MonoBehaviour
     float graceTimer = 0.75f;
     bool isPaused;
     bool gameOver;
+    public bool IsGameOver => gameOver;
 
     Canvas canvas;
     GameObject pauseMenuRoot;
