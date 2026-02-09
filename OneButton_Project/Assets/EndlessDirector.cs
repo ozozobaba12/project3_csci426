@@ -7,6 +7,24 @@ public class EndlessDirector : MonoBehaviour
     public BossfightController controller;
     public BossAI boss;
 
+    [Header("Difficulty Scaling")]
+    [Tooltip("Starting catch rate (fill speed when on the boss).")]
+    public float baseCatchRate = 0.50f;
+    [Tooltip("Catch rate change per boss defeated (positive = faster fill).")]
+    public float catchRatePerBoss = 0f;
+
+    [Tooltip("Starting escape rate (drain speed when off the boss).")]
+    public float baseEscapeRate = 0.50f;
+    [Tooltip("Escape rate change per boss defeated (positive = faster drain).")]
+    public float escapeRatePerBoss = 0.05f;
+
+    [Tooltip("Starting player bar size (fraction of column, 0-1).")]
+    public float baseBarHeight = 0.325f;
+    [Tooltip("How much the bar shrinks per boss defeated.")]
+    public float barHeightDecreasePerBoss = 0.02f;
+    [Tooltip("The bar will never shrink below this value.")]
+    public float minBarHeight = 0.15f;
+
     [Header("Pause Menu Styling")]
     [SerializeField] Color backgroundColor = new Color(0, 0, 0, 0.85f);
     [SerializeField] Color panelColor = new Color(0.15f, 0.15f, 0.15f, 0.95f);
@@ -24,6 +42,7 @@ public class EndlessDirector : MonoBehaviour
     void Start()
     {
         Time.timeScale = 1f;
+        ApplyScaling();
         FindCanvas();
         CreatePauseMenu();
         pauseMenuRoot.SetActive(false);
@@ -66,11 +85,27 @@ public class EndlessDirector : MonoBehaviour
             bossesDefeated++;
             boss.bossesDefeated = bossesDefeated;
 
+            ApplyScaling();
+
             boss.ResetPosition();
             controller.ResetForNextBoss();
 
             graceTimer = 0.75f;
         }
+    }
+
+    // ========================================================
+    //  DIFFICULTY SCALING
+    // ========================================================
+
+    void ApplyScaling()
+    {
+        controller.catchRate = baseCatchRate + catchRatePerBoss * bossesDefeated;
+        controller.escapeRate = baseEscapeRate + escapeRatePerBoss * bossesDefeated;
+        controller.barHeight = Mathf.Max(
+            minBarHeight,
+            baseBarHeight - barHeightDecreasePerBoss * bossesDefeated
+        );
     }
 
     // ========================================================

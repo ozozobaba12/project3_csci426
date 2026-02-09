@@ -43,11 +43,9 @@ public class BossfightController : MonoBehaviour
     // How fast progress drains when boss is outside bar
     public float escapeRate = 0.50f;
 
-    // ---------------- DRAIN DELAY ----------------
-
     [Header("Drain Delay")]
-    // Small delay before draining starts when boss leaves bar
-    public float drainDelay = 0.8f;
+    [Tooltip("Seconds of grace before draining starts when boss leaves bar. Set to 0 for no delay.")]
+    public float drainDelay = 0f;
 
     float drainTimer = 0f;
 
@@ -147,18 +145,12 @@ public class BossfightController : MonoBehaviour
 
         if (inside)
         {
-            // Reset drain timer while successful
             drainTimer = 0f;
-
-            // Gain progress
             progress += catchRate * Time.deltaTime;
         }
         else
         {
-            // Count time since boss left bar
             drainTimer += Time.deltaTime;
-
-            // Only drain after delay
             if (drainTimer >= drainDelay)
                 progress -= escapeRate * Time.deltaTime;
         }
