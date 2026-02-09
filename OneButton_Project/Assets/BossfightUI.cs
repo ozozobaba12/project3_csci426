@@ -330,6 +330,12 @@ public class BossfightUI : MonoBehaviour
             }
         }
 
+        // Ensure column renders on top of the health bar during gravity bosses
+        if (active)
+            column.SetAsLastSibling();
+        else if (progressBarRect != null)
+            progressBarRect.SetAsLastSibling();
+
         gravityMechanicActive = active;
         gravityPhase2 = false;
         gravityIsOn = false;
@@ -503,6 +509,7 @@ public class BossfightUI : MonoBehaviour
                 screenShakeWrapper.anchoredPosition = Vector2.zero;
                 deathShakeActive = false;
                 deathShakeTriggered = true;
+                director.ShowDeathScreen();
             }
         }
     }
