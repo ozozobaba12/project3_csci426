@@ -15,8 +15,6 @@ public class BossfightUI : MonoBehaviour
     public TextMeshProUGUI enemyCounterText;
 
     [Header("Layout")]
-    // ORIGINAL column height used as reference
-    public float baseColumnHeight = 400f;
     public float progressMaxWidth = 220f;
 
     void Update()
@@ -32,10 +30,7 @@ public class BossfightUI : MonoBehaviour
 
     void UpdatePlayerSize()
     {
-        // IMPORTANT:
-        // We scale bar using the ORIGINAL column height,
-        // not the current one, so it never grows visually
-        float visualHeight = baseColumnHeight * controller.barHeight;
+        float visualHeight = column.rect.height * controller.barHeight;
 
         player.SetSizeWithCurrentAnchors(
             RectTransform.Axis.Vertical,
@@ -48,22 +43,12 @@ public class BossfightUI : MonoBehaviour
     void UpdatePlayerPosition()
     {
         float halfColumn = column.rect.height / 2f;
-        float halfBar = (baseColumnHeight * controller.barHeight) / 2f;
 
-        float minY = -halfColumn + halfBar;
-        float maxY =  halfColumn - halfBar;
-
+        // barPosition is already clamped to [barHeight/2 .. 1-barHeight/2]
+        // so Lerp maps it directly into the column's local space
         player.anchoredPosition = new Vector2(
-            player.anchoredPosition.x,
-            Mathf.Lerp(
-                minY,
-                maxY,
-                Mathf.InverseLerp(
-                    controller.barHeight * 0.5f,
-                    1f - controller.barHeight * 0.5f,
-                    controller.barPosition
-                )
-            )
+            0f,
+            Mathf.Lerp(-halfColumn, halfColumn, controller.barPosition)
         );
     }
 
@@ -74,7 +59,7 @@ public class BossfightUI : MonoBehaviour
         float halfColumn = column.rect.height / 2f;
 
         bossIcon.anchoredPosition = new Vector2(
-            bossIcon.anchoredPosition.x,
+            0f,
             Mathf.Lerp(-halfColumn, halfColumn, boss.position)
         );
     }
