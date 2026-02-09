@@ -35,9 +35,16 @@ public class EndlessDirector : MonoBehaviour
     float graceTimer = 0.75f;
     bool isPaused;
     bool gameOver;
+    public bool IsGameOver => gameOver;
 
     Canvas canvas;
     GameObject pauseMenuRoot;
+    GameObject deathScreenRoot;
+    Text scoreText;
+    Text highScoreText;
+    bool deathScreenShown;
+
+    const string HighScoreKey = "BossRushHighScore";
 
     void Start()
     {
@@ -46,12 +53,21 @@ public class EndlessDirector : MonoBehaviour
         FindCanvas();
         CreatePauseMenu();
         pauseMenuRoot.SetActive(false);
+        CreateDeathScreen();
+        deathScreenRoot.SetActive(false);
     }
 
     void Update()
     {
         // R to restart — works even when paused or dead
         if (Input.GetKeyDown(KeyCode.R))
+        {
+            RestartGame();
+            return;
+        }
+
+        // Space to restart from death screen
+        if (deathScreenShown && Input.GetKeyDown(KeyCode.Space))
         {
             RestartGame();
             return;
@@ -239,6 +255,105 @@ public class EndlessDirector : MonoBehaviour
         btnText.color = Color.white;
         btnText.alignment = TextAnchor.MiddleCenter;
         btnText.fontStyle = FontStyle.Bold;
+    }
+
+    // ========================================================
+    //  DEATH SCREEN
+    // ========================================================
+
+    void CreateDeathScreen()
+    {
+        // Fullscreen darkened overlay
+        deathScreenRoot = new GameObject("DeathScreen");
+        deathScreenRoot.transform.SetParent(canvas.transform, false);
+
+        RectTransform rootRect = deathScreenRoot.AddComponent<RectTransform>();
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.sizeDelta = Vector2.zero;
+
+        Image rootBg = deathScreenRoot.AddComponent<Image>();
+        rootBg.color = new Color(0.15f, 0f, 0f, 0.85f);
+
+        // Center panel
+        GameObject panel = new GameObject("Panel");
+        panel.transform.SetParent(deathScreenRoot.transform, false);
+
+        RectTransform panelRect = panel.AddComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.sizeDelta = new Vector2(450, 320);
+
+        Image panelImage = panel.AddComponent<Image>();
+        panelImage.color = panelColor;
+
+        VerticalLayoutGroup vlg = panel.AddComponent<VerticalLayoutGroup>();
+        vlg.spacing = 16;
+        vlg.padding = new RectOffset(40, 40, 30, 30);
+        vlg.childAlignment = TextAnchor.MiddleCenter;
+        vlg.childControlWidth = true;
+        vlg.childControlHeight = false;
+        vlg.childForceExpandWidth = true;
+        vlg.childForceExpandHeight = false;
+
+        // "YOU DIED" title
+        CreateLabel(panel.transform, "YOU DIED", 36,
+            new Color(0.9f, 0.2f, 0.2f, 1f), 45);
+
+        // Score (placeholder, updated when shown)
+        GameObject scoreObj = new GameObject("Score");
+        scoreObj.transform.SetParent(panel.transform, false);
+        RectTransform scoreRect = scoreObj.AddComponent<RectTransform>();
+        scoreRect.sizeDelta = new Vector2(300, 35);
+        scoreText = scoreObj.AddComponent<Text>();
+        scoreText.text = "Score: 0";
+        scoreText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        scoreText.fontSize = 26;
+        scoreText.color = Color.white;
+        scoreText.alignment = TextAnchor.MiddleCenter;
+
+        // High score
+        GameObject highObj = new GameObject("HighScore");
+        highObj.transform.SetParent(panel.transform, false);
+        RectTransform highRect = highObj.AddComponent<RectTransform>();
+        highRect.sizeDelta = new Vector2(300, 35);
+        highScoreText = highObj.AddComponent<Text>();
+        highScoreText.text = "High Score: 0";
+        highScoreText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        highScoreText.fontSize = 26;
+        highScoreText.color = new Color(1f, 0.85f, 0.3f, 1f);
+        highScoreText.alignment = TextAnchor.MiddleCenter;
+
+        // Spacer
+        CreateLabel(panel.transform, "", 10, Color.clear, 10);
+
+        // "Press Space to Continue"
+        CreateLabel(panel.transform, "Press Space to Continue", 20,
+            new Color(0.7f, 0.7f, 0.7f, 1f), 30);
+    }
+
+    public void ShowDeathScreen()
+    {
+        if (deathScreenShown)
+            return;
+
+        deathScreenShown = true;
+
+        int score = bossesDefeated;
+        int highScore = PlayerPrefs.GetInt(HighScoreKey, 0);
+
+        if (score > highScore)
+        {
+            highScore = score;
+            PlayerPrefs.SetInt(HighScoreKey, highScore);
+            PlayerPrefs.Save();
+        }
+
+        scoreText.text = $"Score: {score}";
+        highScoreText.text = $"High Score: {highScore}";
+
+        deathScreenRoot.SetActive(true);
     }
 
     // ========================================================

@@ -161,6 +161,10 @@ public class BossfightController : MonoBehaviour
 
     // ---------------- GAME STATE ----------------
 
+    // 0 = safe, 0→1 = grace period counting toward death
+    public float LossUrgency =>
+        progress > 0f ? 0f : Mathf.Clamp01(lossTimer / lossDelay);
+
     public bool PlayerLost()
     {
         if (progress > 0f)
