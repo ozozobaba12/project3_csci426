@@ -1,5 +1,7 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
+using MagicPigGames;
 
 public class BossfightUI : MonoBehaviour
 {
@@ -11,11 +13,17 @@ public class BossfightUI : MonoBehaviour
     public RectTransform column;
     public RectTransform player;
     public RectTransform bossIcon;
-    public RectTransform progressFill;
+    public ProgressBar progressBar;
     public TextMeshProUGUI enemyCounterText;
 
-    [Header("Layout")]
-    public float progressMaxWidth = 220f;
+    // Auto-discovered fill textures inside the progress bar
+    RawImage[] progressFills;
+
+    void Start()
+    {
+        if (progressBar != null)
+            progressFills = progressBar.GetComponentsInChildren<RawImage>();
+    }
 
     void Update()
     {
@@ -68,12 +76,15 @@ public class BossfightUI : MonoBehaviour
 
     void UpdateProgressBar()
     {
-        float width = progressMaxWidth * controller.progress;
+        progressBar.SetProgress(controller.progress);
 
-        progressFill.SetSizeWithCurrentAnchors(
-            RectTransform.Axis.Horizontal,
-            width
-        );
+        // Tint all fill RawImages: hue 0 = red, hue 0.33 = green
+        if (progressFills != null)
+        {
+            Color tint = Color.HSVToRGB(controller.progress * 0.33f, 1f, 0.9f);
+            foreach (var fill in progressFills)
+                fill.color = tint;
+        }
     }
 
     // ---------------- COUNTER ----------------
