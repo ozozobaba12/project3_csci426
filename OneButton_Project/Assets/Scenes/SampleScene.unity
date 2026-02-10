@@ -1285,7 +1285,9 @@ MonoBehaviour:
   boss1Background: {fileID: 549013411}
   wolfFlashCount: 4
   wolfFlashInterval: 0.1
-  wolfDeathAnimDuration: 1
+  wolfDeathAnimDuration: 0.5
+  wolfDeathExplosionPrefab: {fileID: 188448375238001462, guid: ceb284bdb4a67b6479894ab011885e9e, type: 3}
+  explosionLifetime: 3
   victoryShakeIntensity: 20
   victoryShakeDuration: 0.2
   graceShakeMax: 8
