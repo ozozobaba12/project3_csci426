@@ -92,6 +92,12 @@ public class EndlessDirector : MonoBehaviour
         if (isPaused || gameOver)
             return;
 
+        // 1 to instantly skip/kill the current boss (debug)
+        if (Input.GetKeyDown(KeyCode.Alpha1) && !bossDying)
+        {
+            controller.progress = 1f;
+        }
+
         // --- Boss death sequence: wait, then transition ---
         if (bossDying)
         {

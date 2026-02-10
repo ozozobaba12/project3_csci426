@@ -67,6 +67,34 @@ public class BossfightUI : MonoBehaviour
     [Tooltip("How long to wait for the explosion to play before transitioning (seconds).")]
     public float explosionWaitDuration = 3f;
 
+    [Header("Boss 2 — Clock Visuals")]
+    [Tooltip("The clock Image (UI) on the right side of the screen. Disabled for other bosses.")]
+    public Image clockImage;
+    [Tooltip("Background Image that only shows during Boss 2. Disabled for other bosses.")]
+    public Image boss2Background;
+
+    [Header("Clock Rotate Animation Timing")]
+    [Tooltip("Seconds before the column rotation where the clock starts its rotate animation.")]
+    public float clockRotateLeadIn = 0.5f;
+    [Tooltip("Seconds after the column rotation finishes where the clock continues its rotate animation.")]
+    public float clockRotateTailOut = 0.3f;
+
+    [Header("Clock Hurt")]
+    [Tooltip("Cooldown between hurt triggers so the animation can play through (seconds).")]
+    public float clockHurtCooldown = 0.4f;
+
+    [Header("Clock Death Sequence")]
+    [Tooltip("Number of red flashes before death animation plays.")]
+    public int clockFlashCount = 4;
+    [Tooltip("Duration of each flash on/off cycle (seconds).")]
+    public float clockFlashInterval = 0.1f;
+    [Tooltip("How long the looping death animation plays before the clock disappears (seconds).")]
+    public float clockDeathAnimDuration = 1.0f;
+    [Tooltip("Particle effect prefab spawned where the clock was after it disappears.")]
+    public GameObject clockDeathExplosionPrefab;
+    [Tooltip("How long to wait for the explosion to play before transitioning (seconds).")]
+    public float clockExplosionWaitDuration = 3f;
+
     [Header("Boss Defeat Effects")]
     [Tooltip("Pixel displacement of the impact shake when a boss is defeated.")]
     public float victoryShakeIntensity = 20f;
@@ -94,9 +122,24 @@ public class BossfightUI : MonoBehaviour
     float wolfDeathTimer;
     int wolfFlashCounter;
     bool wolfFlashOn;
-    GameObject wolfExplosionObj;
+    GameObject bossExplosionObj;
     RenderTexture explosionRT;
     int mainCamOriginalMask;
+
+    // Clock animator (auto-fetched from clockImage)
+    Animator clockAnimator;
+    bool clockActive;
+    float clockLastProgress;
+
+    // Clock rotate/hurt animation timing
+    float clockRotateTailTimer;
+    float clockHurtTimer;
+
+    // Clock death sequence state: 0=not dying, 1=flashing, 2=death anim, 3=explosion, 4=done
+    int clockDeathPhase;
+    float clockDeathTimer;
+    int clockFlashCounter;
+    bool clockFlashOn;
 
     // Universal boss defeat effects
     bool defeatEffectsStarted;
@@ -151,8 +194,13 @@ public class BossfightUI : MonoBehaviour
         if (wolfImage != null)
             wolfAnimator = wolfImage.GetComponent<Animator>();
 
+        // Cache clock animator
+        if (clockImage != null)
+            clockAnimator = clockImage.GetComponent<Animator>();
+
         // Start hidden — DetectBossTransition will enable on first frame
         SetWolfActive(false);
+        SetClockActive(false);
 
         CreateRotationWrapper();
 
@@ -222,6 +270,7 @@ public class BossfightUI : MonoBehaviour
         UpdateProgressBar();
         UpdateBossDefeatEffects();
         UpdateWolfAnimator();
+        UpdateClockAnimator();
         UpdateRotation();
         UpdateGravityMechanic();
         UpdateDeathEffects();
@@ -337,6 +386,7 @@ public class BossfightUI : MonoBehaviour
         // Boss type cycle: Normal (0) -> Rotation (1) -> Gravity (2)
         int bossType = lastBossCount % 3;
         SetWolfActive(bossType == 0);
+        SetClockActive(bossType == 1);
         SetRotationActive(bossType == 1);
         SetGravityActive(bossType == 2);
     }
@@ -469,7 +519,7 @@ public class BossfightUI : MonoBehaviour
                     // Wolf disappears, explosion takes its place
                     wolfImage.gameObject.SetActive(false);
 
-                    SpawnWolfExplosion();
+                    SpawnBossExplosion(wolfDeathExplosionPrefab, wolfImage.rectTransform);
                     wolfDeathTimer = explosionWaitDuration;
                     wolfDeathPhase = 3;
                 }
@@ -489,14 +539,14 @@ public class BossfightUI : MonoBehaviour
 
     const int ExplosionLayer = 31;
 
-    void SpawnWolfExplosion()
+    void SpawnBossExplosion(GameObject prefab, RectTransform sourceRect)
     {
-        if (wolfDeathExplosionPrefab == null)
+        if (prefab == null)
             return;
 
-        // Get the true screen-space center of the wolf rect
+        // Get the true screen-space center of the source rect
         Vector3[] corners = new Vector3[4];
-        wolfImage.rectTransform.GetWorldCorners(corners);
+        sourceRect.GetWorldCorners(corners);
         Vector3 center = (corners[0] + corners[2]) * 0.5f;
 
         // Convert screen position to world z=0 plane
@@ -506,8 +556,8 @@ public class BossfightUI : MonoBehaviour
             new Vector3(center.x, center.y, distToZero));
 
         // Instantiate and move to a dedicated layer
-        wolfExplosionObj = Instantiate(wolfDeathExplosionPrefab, worldPos, Quaternion.identity);
-        SetLayerRecursive(wolfExplosionObj, ExplosionLayer);
+        bossExplosionObj = Instantiate(prefab, worldPos, Quaternion.identity);
+        SetLayerRecursive(bossExplosionObj, ExplosionLayer);
 
         // Stop the main camera from rendering the explosion layer
         mainCamOriginalMask = cam.cullingMask;
@@ -531,14 +581,14 @@ public class BossfightUI : MonoBehaviour
         explosionCam.backgroundColor = Color.clear;
         explosionCam.cullingMask = 1 << ExplosionLayer;
         explosionCam.targetTexture = explosionRT;
-        camObj.transform.SetParent(wolfExplosionObj.transform);
+        camObj.transform.SetParent(bossExplosionObj.transform);
 
         // Overlay canvas with high sort order to render on top of the main UI
         GameObject canvasObj = new GameObject("ExplosionCanvas");
         Canvas expCanvas = canvasObj.AddComponent<Canvas>();
         expCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
         expCanvas.sortingOrder = 100;
-        canvasObj.transform.SetParent(wolfExplosionObj.transform);
+        canvasObj.transform.SetParent(bossExplosionObj.transform);
 
         // Fullscreen RawImage displaying the RenderTexture
         GameObject rawImgObj = new GameObject("ExplosionImage");
@@ -560,9 +610,9 @@ public class BossfightUI : MonoBehaviour
             Camera.main.cullingMask = mainCamOriginalMask;
 
         // Destroy the explosion hierarchy (includes the camera and canvas)
-        if (wolfExplosionObj != null)
-            Destroy(wolfExplosionObj);
-        wolfExplosionObj = null;
+        if (bossExplosionObj != null)
+            Destroy(bossExplosionObj);
+        bossExplosionObj = null;
 
         // Release the RenderTexture
         if (explosionRT != null)
@@ -578,6 +628,182 @@ public class BossfightUI : MonoBehaviour
         obj.layer = layer;
         foreach (Transform child in obj.transform)
             SetLayerRecursive(child.gameObject, layer);
+    }
+
+    // ---------------- BOSS 2 — CLOCK ----------------
+
+    void SetClockActive(bool active)
+    {
+        clockActive = active;
+        clockDeathPhase = 0;
+
+        if (clockImage != null)
+        {
+            clockImage.gameObject.SetActive(active);
+            clockImage.color = Color.white; // reset tint
+        }
+
+        if (boss2Background != null)
+        {
+            boss2Background.gameObject.SetActive(active);
+
+            // Ensure background draws behind everything else
+            if (active)
+                boss2Background.transform.SetAsFirstSibling();
+        }
+
+        // Reset animation timers
+        clockRotateTailTimer = 0f;
+        clockHurtTimer = 0f;
+
+        if (active && clockAnimator != null)
+        {
+            // Reset to idle state
+            clockAnimator.ResetTrigger("IsHurt");
+            clockAnimator.ResetTrigger("IsDead");
+            clockAnimator.SetBool("IsRotating", false);
+            clockAnimator.Play("clock_idle", 0, 0f);
+            clockLastProgress = controller.progress;
+        }
+    }
+
+    void UpdateClockAnimator()
+    {
+        if (!clockActive || clockAnimator == null)
+            return;
+
+        // --- Death sequence takes over all animation control ---
+        if (clockDeathPhase > 0)
+        {
+            UpdateClockDeathSequence();
+            return;
+        }
+
+        // --- Before the player presses Space, just idle ---
+        if (!controller.HasStarted)
+            return;
+
+        // --- Start the death sequence when boss is defeated ---
+        if (director.IsBossDying)
+        {
+            StartClockDeathSequence();
+            return;
+        }
+
+        // Rotate animation: lead-in before rotation, active during, tail after
+        bool rotationImminent = rotationActive && rotationTimer >= rotationInterval - clockRotateLeadIn;
+        bool rotationInProgress = rotationActive && Mathf.Abs(currentAngle - targetAngle) > 0.5f;
+
+        if (rotationInProgress || rotationImminent)
+            clockRotateTailTimer = clockRotateTailOut;
+        else if (clockRotateTailTimer > 0f)
+            clockRotateTailTimer -= Time.deltaTime;
+
+        bool showRotateAnim = rotationInProgress || rotationImminent || clockRotateTailTimer > 0f;
+
+        // Priority: Rotate > Hurt > Idle
+        float half = controller.barHeight * 0.5f;
+        bool bossInsideBar =
+            boss.position > controller.barPosition - half &&
+            boss.position < controller.barPosition + half;
+
+        bool catching = bossInsideBar && controller.progress > clockLastProgress;
+
+        if (showRotateAnim)
+        {
+            // Rotate takes top priority — player must see the "cast"
+            clockAnimator.SetBool("IsRotating", true);
+        }
+        else if (catching)
+        {
+            // Hurt while catching (only when not rotating)
+            clockAnimator.SetBool("IsRotating", false);
+            if (!clockAnimator.GetCurrentAnimatorStateInfo(0).IsName("clock_hurt"))
+                clockAnimator.Play("clock_hurt", 0, 0f);
+        }
+        else
+        {
+            // Idle
+            clockAnimator.SetBool("IsRotating", false);
+        }
+
+        clockLastProgress = controller.progress;
+    }
+
+    // ---------------- CLOCK DEATH SEQUENCE ----------------
+
+    void StartClockDeathSequence()
+    {
+        clockDeathPhase = 1; // flashing
+        clockFlashCounter = 0;
+        clockFlashOn = false;
+        clockDeathTimer = clockFlashInterval;
+
+        // Stop rotation and shake immediately — snaps column back to normal
+        SetRotationActive(false);
+
+        // Play hurt animation during flash phase (not idle)
+        clockAnimator.SetBool("IsRotating", false);
+        clockAnimator.Play("clock_hurt", 0, 0f);
+
+        // Override director's default timer — we'll call FinishBossTransition ourselves
+        director.SetDeathTimer(999f);
+    }
+
+    void UpdateClockDeathSequence()
+    {
+        clockDeathTimer -= Time.deltaTime;
+
+        switch (clockDeathPhase)
+        {
+            // Phase 1: Flash red/white (hurt animation keeps playing)
+            case 1:
+                // Keep hurt animation playing (prevent HasExitTime transition to idle)
+                if (!clockAnimator.GetCurrentAnimatorStateInfo(0).IsName("clock_hurt"))
+                    clockAnimator.Play("clock_hurt", 0, 0f);
+
+                if (clockDeathTimer <= 0f)
+                {
+                    clockFlashOn = !clockFlashOn;
+                    clockImage.color = clockFlashOn ? Color.red : Color.white;
+                    clockFlashCounter++;
+                    clockDeathTimer = clockFlashInterval;
+
+                    // Each on+off = 2 counts, so total flashes = clockFlashCount * 2
+                    if (clockFlashCounter >= clockFlashCount * 2)
+                    {
+                        // End on white, then start death anim
+                        clockImage.color = Color.white;
+                        clockDeathPhase = 2;
+                        clockDeathTimer = clockDeathAnimDuration;
+                        clockAnimator.SetTrigger("IsDead");
+                    }
+                }
+                break;
+
+            // Phase 2: Looping death animation playing
+            case 2:
+                if (clockDeathTimer <= 0f)
+                {
+                    // Clock disappears, explosion takes its place
+                    clockImage.gameObject.SetActive(false);
+
+                    SpawnBossExplosion(clockDeathExplosionPrefab, clockImage.rectTransform);
+                    clockDeathTimer = clockExplosionWaitDuration;
+                    clockDeathPhase = 3;
+                }
+                break;
+
+            // Phase 3: Explosion playing — wait for its duration, then transition
+            case 3:
+                if (clockDeathTimer <= 0f)
+                {
+                    CleanUpExplosion();
+                    clockDeathPhase = 4;
+                    director.FinishBossTransition();
+                }
+                break;
+        }
     }
 
     void SetRotationActive(bool active)
