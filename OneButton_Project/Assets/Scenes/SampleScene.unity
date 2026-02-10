@@ -1505,7 +1505,7 @@ MonoBehaviour:
   dragonImage: {fileID: 245312413}
   boss3Background: {fileID: 2014961859}
   dragonPhase2Image: {fileID: 726973070}
-  transformFreezeDuration: 1.5
+  transformFreezeDuration: 2
   transformDrainRate: 0.4
   transformDrainShake: 6
   dragonTransformExplosionPrefab: {fileID: 8970668011737306692, guid: 9c1f6f57d78072b42a60c61b9eed279f, type: 3}
