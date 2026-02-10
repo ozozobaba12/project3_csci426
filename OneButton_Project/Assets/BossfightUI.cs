@@ -95,6 +95,22 @@ public class BossfightUI : MonoBehaviour
     [Tooltip("How long to wait for the explosion to play before transitioning (seconds).")]
     public float clockExplosionWaitDuration = 3f;
 
+    [Header("Boss 3 — Dragon Visuals")]
+    [Tooltip("The dragon Image (UI) on the right side of the screen. Disabled for other bosses.")]
+    public Image dragonImage;
+    [Tooltip("Background Image that only shows during Boss 3. Disabled for other bosses.")]
+    public Image boss3Background;
+
+    [Header("Dragon Death Sequence")]
+    [Tooltip("Number of red flashes before the dragon disappears.")]
+    public int dragonFlashCount = 4;
+    [Tooltip("Duration of each flash on/off cycle (seconds).")]
+    public float dragonFlashInterval = 0.1f;
+    [Tooltip("Particle effect prefab spawned where the dragon was after it disappears.")]
+    public GameObject dragonDeathExplosionPrefab;
+    [Tooltip("How long to wait for the explosion to play before transitioning (seconds).")]
+    public float dragonExplosionWaitDuration = 3f;
+
     [Header("Boss Defeat Effects")]
     [Tooltip("Pixel displacement of the impact shake when a boss is defeated.")]
     public float victoryShakeIntensity = 20f;
@@ -140,6 +156,16 @@ public class BossfightUI : MonoBehaviour
     float clockDeathTimer;
     int clockFlashCounter;
     bool clockFlashOn;
+
+    // Dragon animator (auto-fetched from dragonImage)
+    Animator dragonAnimator;
+    bool dragonActive;
+
+    // Dragon death sequence state: 0=not dying, 1=flashing, 2=explosion, 3=done
+    int dragonDeathPhase;
+    float dragonDeathTimer;
+    int dragonFlashCounter;
+    bool dragonFlashOn;
 
     // Universal boss defeat effects
     bool defeatEffectsStarted;
@@ -198,10 +224,16 @@ public class BossfightUI : MonoBehaviour
         if (clockImage != null)
             clockAnimator = clockImage.GetComponent<Animator>();
 
+        // Cache dragon animator
+        if (dragonImage != null)
+            dragonAnimator = dragonImage.GetComponent<Animator>();
+
         // Start hidden — DetectBossTransition will enable on first frame
         SetWolfActive(false);
         SetClockActive(false);
+        SetDragonActive(false);
 
+        CreateColumnBorder();
         CreateRotationWrapper();
 
         // Cache the canvas rect for gravity screen bounds
@@ -260,6 +292,160 @@ public class BossfightUI : MonoBehaviour
         }
     }
 
+    // ============================================================
+    //  COLUMN BORDER — pixel-art embossed frame
+    // ============================================================
+
+    enum BorderSide { Top, Bottom, Left, Right }
+
+    void CreateColumnBorder()
+    {
+        const float B = 8f;
+
+        // Warm stone / wood pixel-art palette
+        Color outline   = new Color(0.06f, 0.04f, 0.03f);
+        Color bevelHL   = new Color(0.52f, 0.40f, 0.30f);
+        Color bevelSH   = new Color(0.13f, 0.09f, 0.06f);
+        Color fill      = new Color(0.30f, 0.22f, 0.15f);
+        Color innerHL   = new Color(0.42f, 0.32f, 0.23f);
+        Color innerSH   = new Color(0.12f, 0.08f, 0.05f);
+        Color rivetFace = new Color(0.58f, 0.45f, 0.33f);
+        Color rivetEdge = new Color(0.18f, 0.12f, 0.08f);
+
+        // Frame container — stretches B px beyond column on every side
+        RectTransform frame = new GameObject("ColumnBorder")
+            .AddComponent<RectTransform>();
+        frame.SetParent(column, false);
+        frame.anchorMin = Vector2.zero;
+        frame.anchorMax = Vector2.one;
+        frame.offsetMin = new Vector2(-B, -B);
+        frame.offsetMax = new Vector2(B, B);
+        frame.SetAsFirstSibling(); // render behind player bar & boss icon
+
+        // 1. Base fill (entire border area)
+        BorderFill(frame, fill);
+
+        // 2. Outer bevel — highlight top/left, shadow bottom/right (3 px, 1 px in)
+        BorderStrip(frame, bevelHL, BorderSide.Top,    1, 3);
+        BorderStrip(frame, bevelHL, BorderSide.Left,   1, 3, 4);
+        BorderStrip(frame, bevelSH, BorderSide.Bottom, 1, 3);
+        BorderStrip(frame, bevelSH, BorderSide.Right,  1, 3, 4);
+
+        // 3. Inner reverse-bevel for recessed look (1 px at 6 px in)
+        BorderStrip(frame, innerSH, BorderSide.Top,    6, 1);
+        BorderStrip(frame, innerSH, BorderSide.Left,   6, 1, 7);
+        BorderStrip(frame, innerHL, BorderSide.Bottom, 6, 1);
+        BorderStrip(frame, innerHL, BorderSide.Right,  6, 1, 7);
+
+        // 4. Outer outline (1 px crisp edge)
+        BorderStrip(frame, outline, BorderSide.Top,    0, 1);
+        BorderStrip(frame, outline, BorderSide.Bottom, 0, 1);
+        BorderStrip(frame, outline, BorderSide.Left,   0, 1);
+        BorderStrip(frame, outline, BorderSide.Right,  0, 1);
+
+        // 5. Inner outline (1 px at column boundary)
+        BorderStrip(frame, outline, BorderSide.Top,    B - 1, 1);
+        BorderStrip(frame, outline, BorderSide.Bottom, B - 1, 1);
+        BorderStrip(frame, outline, BorderSide.Left,   B - 1, 1);
+        BorderStrip(frame, outline, BorderSide.Right,  B - 1, 1);
+
+        // 6. Interior — restore column's original background over the fill
+        Image columnImg = column.GetComponent<Image>();
+        Color colColor = columnImg != null ? columnImg.color : Color.clear;
+        RectTransform interior = new GameObject("BorderInterior")
+            .AddComponent<RectTransform>();
+        interior.SetParent(frame, false);
+        interior.anchorMin = Vector2.zero;
+        interior.anchorMax = Vector2.one;
+        interior.offsetMin = new Vector2(B, B);
+        interior.offsetMax = new Vector2(-B, -B);
+        Image intImg = interior.gameObject.AddComponent<Image>();
+        intImg.color = colColor;
+        intImg.raycastTarget = false;
+
+        // 7. Corner rivets — small beveled studs
+        float rc = B * 0.5f;
+        float rs = 4f;
+        BorderRivet(frame, rivetFace, rivetEdge, new Vector2(0, 1), new Vector2( rc, -rc), rs);
+        BorderRivet(frame, rivetFace, rivetEdge, new Vector2(1, 1), new Vector2(-rc, -rc), rs);
+        BorderRivet(frame, rivetFace, rivetEdge, new Vector2(0, 0), new Vector2( rc,  rc), rs);
+        BorderRivet(frame, rivetFace, rivetEdge, new Vector2(1, 0), new Vector2(-rc,  rc), rs);
+    }
+
+    void BorderFill(RectTransform parent, Color c)
+    {
+        RectTransform rt = new GameObject("bf").AddComponent<RectTransform>();
+        rt.SetParent(parent, false);
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+        Image img = rt.gameObject.AddComponent<Image>();
+        img.color = c;
+        img.raycastTarget = false;
+    }
+
+    void BorderStrip(RectTransform parent, Color c,
+                     BorderSide side, float from, float thick, float corner = 0f)
+    {
+        float f2 = from + thick;
+        Vector2 aMin, aMax, oMin, oMax;
+
+        switch (side)
+        {
+            case BorderSide.Top:
+                aMin = new Vector2(0, 1); aMax = new Vector2(1, 1);
+                oMin = new Vector2(corner, -f2); oMax = new Vector2(-corner, -from);
+                break;
+            case BorderSide.Bottom:
+                aMin = new Vector2(0, 0); aMax = new Vector2(1, 0);
+                oMin = new Vector2(corner, from); oMax = new Vector2(-corner, f2);
+                break;
+            case BorderSide.Left:
+                aMin = new Vector2(0, 0); aMax = new Vector2(0, 1);
+                oMin = new Vector2(from, corner); oMax = new Vector2(f2, -corner);
+                break;
+            default: // Right
+                aMin = new Vector2(1, 0); aMax = new Vector2(1, 1);
+                oMin = new Vector2(-f2, corner); oMax = new Vector2(-from, -corner);
+                break;
+        }
+
+        RectTransform rt = new GameObject("be").AddComponent<RectTransform>();
+        rt.SetParent(parent, false);
+        rt.anchorMin = aMin;
+        rt.anchorMax = aMax;
+        rt.offsetMin = oMin;
+        rt.offsetMax = oMax;
+        Image img = rt.gameObject.AddComponent<Image>();
+        img.color = c;
+        img.raycastTarget = false;
+    }
+
+    void BorderRivet(RectTransform parent, Color face, Color shade,
+                     Vector2 anchor, Vector2 pos, float size)
+    {
+        BorderDot(parent, shade, anchor, pos + new Vector2(0.5f, -0.5f), size);
+        BorderDot(parent, face,  anchor, pos + new Vector2(-0.5f, 0.5f), size);
+    }
+
+    void BorderDot(RectTransform parent, Color c,
+                   Vector2 anchor, Vector2 pos, float size)
+    {
+        RectTransform rt = new GameObject("bd").AddComponent<RectTransform>();
+        rt.SetParent(parent, false);
+        rt.anchorMin = anchor;
+        rt.anchorMax = anchor;
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = new Vector2(size, size);
+        Image img = rt.gameObject.AddComponent<Image>();
+        img.color = c;
+        img.raycastTarget = false;
+    }
+
+    // ============================================================
+
     void Update()
     {
         DetectBossTransition();
@@ -271,6 +457,7 @@ public class BossfightUI : MonoBehaviour
         UpdateBossDefeatEffects();
         UpdateWolfAnimator();
         UpdateClockAnimator();
+        UpdateDragonAnimator();
         UpdateRotation();
         UpdateGravityMechanic();
         UpdateDeathEffects();
@@ -387,6 +574,7 @@ public class BossfightUI : MonoBehaviour
         int bossType = lastBossCount % 3;
         SetWolfActive(bossType == 0);
         SetClockActive(bossType == 1);
+        SetDragonActive(bossType == 2);
         SetRotationActive(bossType == 1);
         SetGravityActive(bossType == 2);
     }
@@ -872,6 +1060,133 @@ public class BossfightUI : MonoBehaviour
                 column.anchoredPosition = Vector2.zero;
                 tickShaking = false;
             }
+        }
+    }
+
+    // ---------------- BOSS 3 — DRAGON ----------------
+
+    void SetDragonActive(bool active)
+    {
+        dragonActive = active;
+        dragonDeathPhase = 0;
+        if (dragonImage != null)
+        {
+            dragonImage.gameObject.SetActive(active);
+            dragonImage.color = Color.white; // reset tint
+        }
+
+        if (boss3Background != null)
+        {
+            boss3Background.gameObject.SetActive(active);
+
+            if (active)
+                boss3Background.transform.SetAsFirstSibling();
+        }
+
+        if (active && dragonAnimator != null)
+        {
+            dragonAnimator.SetBool("IsAttacking", false);
+            dragonAnimator.Play("Dragon_Idle", 0, 0f);
+        }
+    }
+
+    void UpdateDragonAnimator()
+    {
+        if (!dragonActive || dragonAnimator == null)
+            return;
+
+        // --- Death sequence takes over all animation control ---
+        if (dragonDeathPhase > 0)
+        {
+            UpdateDragonDeathSequence();
+            return;
+        }
+
+        // --- Before the player presses Space, just idle ---
+        if (!controller.HasStarted)
+            return;
+
+        // --- Start the death sequence when boss is defeated ---
+        if (director.IsBossDying)
+        {
+            StartDragonDeathSequence();
+            return;
+        }
+
+        // Attack when boss is outside the player's bar, idle when inside
+        float half = controller.barHeight * 0.5f;
+        bool bossInsideBar =
+            boss.position > controller.barPosition - half &&
+            boss.position < controller.barPosition + half;
+
+        bool wantsAttack = !bossInsideBar;
+        bool currentlyAttacking = dragonAnimator.GetBool("IsAttacking");
+
+        // Only switch states when the current animation has finished playing
+        AnimatorStateInfo state = dragonAnimator.GetCurrentAnimatorStateInfo(0);
+        bool clipDone = state.normalizedTime >= 1f;
+
+        if (wantsAttack != currentlyAttacking && clipDone)
+            dragonAnimator.SetBool("IsAttacking", wantsAttack);
+    }
+
+    // ---------------- DRAGON DEATH SEQUENCE ----------------
+
+    void StartDragonDeathSequence()
+    {
+        dragonDeathPhase = 1; // flashing
+        dragonFlashCounter = 0;
+        dragonFlashOn = false;
+        dragonDeathTimer = dragonFlashInterval;
+
+        // Freeze on idle during death
+        dragonAnimator.SetBool("IsAttacking", false);
+        dragonAnimator.Play("Dragon_Idle", 0, 0f);
+
+        // Override director's default timer — we'll call FinishBossTransition ourselves
+        director.SetDeathTimer(999f);
+    }
+
+    void UpdateDragonDeathSequence()
+    {
+        dragonDeathTimer -= Time.deltaTime;
+
+        switch (dragonDeathPhase)
+        {
+            // Phase 1: Flash red/white
+            case 1:
+                if (dragonDeathTimer <= 0f)
+                {
+                    dragonFlashOn = !dragonFlashOn;
+                    dragonImage.color = dragonFlashOn ? Color.red : Color.white;
+                    dragonFlashCounter++;
+                    dragonDeathTimer = dragonFlashInterval;
+
+                    if (dragonFlashCounter >= dragonFlashCount * 2)
+                    {
+                        // No death anim — go straight to disappear + explosion
+                        dragonImage.color = Color.white;
+                        dragonImage.gameObject.SetActive(false);
+
+                        if (boss3Background != null)
+                            boss3Background.gameObject.SetActive(false);
+
+                        SpawnBossExplosion(dragonDeathExplosionPrefab, dragonImage.rectTransform);
+                        dragonDeathTimer = Mathf.Max(dragonExplosionWaitDuration, 0.5f);
+                        dragonDeathPhase = 2;
+                    }
+                }
+                break;
+
+            // Phase 2: Explosion playing — wait for its duration, then transition
+            case 2:
+                if (dragonDeathTimer <= 0f)
+                {
+                    CleanUpExplosion();
+                    dragonDeathPhase = 3;
+                    director.FinishBossTransition();
+                }
+                break;
         }
     }
 
