@@ -98,3 +98,6 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 OneButton_Project/.vsconfig
+OneButton_Project/Assets/_Recovery.meta
+OneButton_Project/Assets/_Recovery/0.unity
+OneButton_Project/Assets/_Recovery/0.unity.meta
