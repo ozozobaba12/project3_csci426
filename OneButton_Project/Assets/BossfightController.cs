@@ -62,6 +62,10 @@ public class BossfightController : MonoBehaviour
     public BossAI boss;
 
     bool hasStarted;
+    public bool HasStarted => hasStarted;
+
+    // Set by EndlessDirector when boss is defeated — freezes all input and progress
+    [HideInInspector] public bool isFrozen;
 
     void Awake()
     {
@@ -81,6 +85,10 @@ public class BossfightController : MonoBehaviour
 
     void UpdateBar()
     {
+        // Nothing moves while frozen (boss death sequence)
+        if (isFrozen)
+            return;
+
         // First Space press starts the round
         if (!hasStarted && Input.GetKeyDown(KeyCode.Space))
         {
@@ -133,7 +141,7 @@ public class BossfightController : MonoBehaviour
 
     void UpdateProgress()
     {
-        if (!hasStarted)
+        if (!hasStarted || isFrozen)
             return;
 
         float half = barHeight * 0.5f;
@@ -192,6 +200,7 @@ public class BossfightController : MonoBehaviour
         drainTimer = 0f;
         lossTimer = 0f;
         hasStarted = false;
+        isFrozen = false;
 
         boss.isActive = false;
     }

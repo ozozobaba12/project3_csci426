@@ -31,11 +31,20 @@ public class EndlessDirector : MonoBehaviour
     [SerializeField] Color resumeButtonColor = new Color(0.2f, 0.6f, 0.9f, 1f);
     [SerializeField] Color exitButtonColor = new Color(0.8f, 0.2f, 0.2f, 1f);
 
+    [Header("Boss Death Timing")]
+    [Tooltip("How long the freeze lasts for bosses without a custom death sequence (Boss 2, 3).")]
+    public float defaultDeathDuration = 1.5f;
+
     public int bossesDefeated = 0;
     float graceTimer = 0.75f;
     bool isPaused;
     bool gameOver;
     public bool IsGameOver => gameOver;
+
+    // Boss death sequence state
+    bool bossDying;
+    float bossDeathTimer;
+    public bool IsBossDying => bossDying;
 
     Canvas canvas;
     GameObject pauseMenuRoot;
@@ -83,6 +92,15 @@ public class EndlessDirector : MonoBehaviour
         if (isPaused || gameOver)
             return;
 
+        // --- Boss death sequence: wait, then transition ---
+        if (bossDying)
+        {
+            bossDeathTimer -= Time.deltaTime;
+            if (bossDeathTimer <= 0f)
+                FinishBossTransition();
+            return;
+        }
+
         if (graceTimer > 0f)
         {
             graceTimer -= Time.deltaTime;
@@ -98,16 +116,41 @@ public class EndlessDirector : MonoBehaviour
 
         if (controller.PlayerWon())
         {
-            bossesDefeated++;
-            boss.bossesDefeated = bossesDefeated;
+            // Freeze gameplay — bar, boss icon, and progress all stop
+            controller.isFrozen = true;
+            boss.isActive = false;
 
-            ApplyScaling();
-
-            boss.ResetPosition();
-            controller.ResetForNextBoss();
-
-            graceTimer = 0.75f;
+            bossDying = true;
+            bossDeathTimer = defaultDeathDuration;
         }
+    }
+
+    /// <summary>
+    /// Called by BossfightUI (or the timer) when the death sequence is done.
+    /// Advances to the next boss.
+    /// </summary>
+    public void FinishBossTransition()
+    {
+        bossDying = false;
+
+        bossesDefeated++;
+        boss.bossesDefeated = bossesDefeated;
+
+        ApplyScaling();
+
+        boss.ResetPosition();
+        controller.ResetForNextBoss();
+
+        graceTimer = 0.75f;
+    }
+
+    /// <summary>
+    /// Overrides the default death timer so the UI can drive timing instead.
+    /// Pass a large value so the timer never expires on its own.
+    /// </summary>
+    public void SetDeathTimer(float duration)
+    {
+        bossDeathTimer = duration;
     }
 
     // ========================================================
@@ -353,6 +396,10 @@ public class EndlessDirector : MonoBehaviour
         scoreText.text = $"Score: {score}";
         highScoreText.text = $"High Score: {highScore}";
 
+        // Ensure death screen is a direct child of the canvas root
+        // (not trapped inside ScreenShakeWrapper) so it renders on top of everything
+        deathScreenRoot.transform.SetParent(canvas.transform, false);
+        deathScreenRoot.transform.SetAsLastSibling();
         deathScreenRoot.SetActive(true);
     }
 
@@ -363,6 +410,14 @@ public class EndlessDirector : MonoBehaviour
     void TogglePause()
     {
         isPaused = !isPaused;
+
+        // Ensure pause menu renders on top of everything
+        if (isPaused)
+        {
+            pauseMenuRoot.transform.SetParent(canvas.transform, false);
+            pauseMenuRoot.transform.SetAsLastSibling();
+        }
+
         pauseMenuRoot.SetActive(isPaused);
 
         if (!gameOver)

@@ -49,6 +49,26 @@ public class BossfightUI : MonoBehaviour
     [Tooltip("How quickly spin decays when floating (0 = never, higher = faster).")]
     public float tumbleDamping = 2f;
 
+    [Header("Boss 1 — Wolf Visuals")]
+    [Tooltip("The wolf Image (UI) on the right side of the screen. Disabled for other bosses.")]
+    public Image wolfImage;
+    [Tooltip("Background Image that only shows during Boss 1. Disabled for other bosses.")]
+    public Image boss1Background;
+
+    [Header("Wolf Death Sequence")]
+    [Tooltip("Number of red flashes before death animation plays.")]
+    public int wolfFlashCount = 4;
+    [Tooltip("Duration of each flash on/off cycle (seconds).")]
+    public float wolfFlashInterval = 0.1f;
+    [Tooltip("How long the death animation plays before the wolf disappears (seconds). Match your wolf_dead clip length.")]
+    public float wolfDeathAnimDuration = 1.0f;
+
+    [Header("Boss Defeat Effects")]
+    [Tooltip("Pixel displacement of the impact shake when a boss is defeated.")]
+    public float victoryShakeIntensity = 20f;
+    [Tooltip("How long the victory shake lasts (seconds). Keep short for a punchy hit feel.")]
+    public float victoryShakeDuration = 0.2f;
+
     [Header("Death Effects")]
     [Tooltip("Max pixel displacement of the health bar during grace period.")]
     public float graceShakeMax = 8f;
@@ -59,6 +79,21 @@ public class BossfightUI : MonoBehaviour
 
     // Auto-discovered fill textures inside the progress bar
     RawImage[] progressFills;
+
+    // Wolf animator (auto-fetched from wolfImage)
+    Animator wolfAnimator;
+    bool wolfActive;
+    float lastProgress;
+
+    // Wolf death sequence state: 0=not dying, 1=flashing, 2=death anim, 3=done
+    int wolfDeathPhase;
+    float wolfDeathTimer;
+    int wolfFlashCounter;
+    bool wolfFlashOn;
+
+    // Universal boss defeat effects
+    bool defeatEffectsStarted;
+    float victoryShakeTimer;
 
     // Rotation state
     RectTransform rotationWrapper;
@@ -104,6 +139,13 @@ public class BossfightUI : MonoBehaviour
             progressBarRect = progressBar.GetComponent<RectTransform>();
             progressBarBasePos = progressBarRect.anchoredPosition;
         }
+
+        // Cache wolf animator
+        if (wolfImage != null)
+            wolfAnimator = wolfImage.GetComponent<Animator>();
+
+        // Start hidden — DetectBossTransition will enable on first frame
+        SetWolfActive(false);
 
         CreateRotationWrapper();
 
@@ -152,14 +194,14 @@ public class BossfightUI : MonoBehaviour
         screenShakeWrapper.offsetMin = Vector2.zero;
         screenShakeWrapper.offsetMax = Vector2.zero;
 
-        // Reparent all existing canvas children under the wrapper
-        // (iterate in reverse so indices don't shift)
-        int childCount = canvasTransform.childCount;
-        for (int i = childCount - 1; i >= 0; i--)
+        // Move wrapper to index 0, then take children in forward order
+        // so the original hierarchy draw order is preserved
+        screenShakeWrapper.SetAsFirstSibling();
+
+        while (canvasTransform.childCount > 1)
         {
-            Transform child = canvasTransform.GetChild(i);
-            if (child != screenShakeWrapper.transform)
-                child.SetParent(screenShakeWrapper, true);
+            Transform child = canvasTransform.GetChild(1);
+            child.SetParent(screenShakeWrapper, true);
         }
     }
 
@@ -171,6 +213,8 @@ public class BossfightUI : MonoBehaviour
         UpdatePlayerPosition();
         UpdateBossPosition();
         UpdateProgressBar();
+        UpdateBossDefeatEffects();
+        UpdateWolfAnimator();
         UpdateRotation();
         UpdateGravityMechanic();
         UpdateDeathEffects();
@@ -221,12 +265,52 @@ public class BossfightUI : MonoBehaviour
     {
         progressBar.SetProgress(controller.progress);
 
-        // Tint all fill RawImages: hue 0 = red, hue 0.33 = green
+        // Tint all fill RawImages: hue 0 = red, hue 0.33 = green — pitch black on defeat
         if (progressFills != null)
         {
-            Color tint = Color.HSVToRGB(controller.progress * 0.33f, 1f, 0.9f);
+            Color tint = director.IsBossDying
+                ? Color.black
+                : Color.HSVToRGB(controller.progress * 0.33f, 1f, 0.9f);
             foreach (var fill in progressFills)
                 fill.color = tint;
+        }
+    }
+
+    // ---------------- BOSS DEFEAT EFFECTS (UNIVERSAL) ----------------
+
+    void UpdateBossDefeatEffects()
+    {
+        if (!director.IsBossDying)
+            return;
+
+        // One-shot: kick off the shake on the first frame
+        if (!defeatEffectsStarted)
+        {
+            defeatEffectsStarted = true;
+            victoryShakeTimer = victoryShakeDuration;
+        }
+
+        // Brief punchy shake on column + progress bar
+        if (victoryShakeTimer > 0f)
+        {
+            victoryShakeTimer -= Time.deltaTime;
+
+            // Intensity decays linearly so it feels like an impact
+            float t = Mathf.Clamp01(victoryShakeTimer / victoryShakeDuration);
+            float intensity = t * victoryShakeIntensity;
+            Vector2 shake = Random.insideUnitCircle * intensity;
+
+            column.anchoredPosition = shake;
+
+            if (progressBarRect != null)
+                progressBarRect.anchoredPosition = progressBarBasePos + shake;
+        }
+        else
+        {
+            column.anchoredPosition = Vector2.zero;
+
+            if (progressBarRect != null)
+                progressBarRect.anchoredPosition = progressBarBasePos;
         }
     }
 
@@ -239,10 +323,151 @@ public class BossfightUI : MonoBehaviour
 
         lastBossCount = director.bossesDefeated;
 
+        // Reset universal defeat effects for the new boss
+        defeatEffectsStarted = false;
+        victoryShakeTimer = 0f;
+
         // Boss type cycle: Normal (0) -> Rotation (1) -> Gravity (2)
         int bossType = lastBossCount % 3;
+        SetWolfActive(bossType == 0);
         SetRotationActive(bossType == 1);
         SetGravityActive(bossType == 2);
+    }
+
+    // ---------------- BOSS 1 — WOLF ----------------
+
+    void SetWolfActive(bool active)
+    {
+        wolfActive = active;
+        wolfDeathPhase = 0;
+
+        if (wolfImage != null)
+        {
+            wolfImage.gameObject.SetActive(active);
+            wolfImage.color = Color.white; // reset tint
+        }
+
+        if (boss1Background != null)
+        {
+            boss1Background.gameObject.SetActive(active);
+
+            // Ensure background draws behind everything else
+            if (active)
+                boss1Background.transform.SetAsFirstSibling();
+        }
+
+        if (active && wolfAnimator != null)
+        {
+            // Reset to idle state
+            wolfAnimator.ResetTrigger("IsHurt");
+            wolfAnimator.ResetTrigger("IsDead");
+            wolfAnimator.SetBool("IsAttacking", false);
+            wolfAnimator.SetBool("IsRunning", false);
+            wolfAnimator.Play("Wolf_Idle", 0, 0f);
+            lastProgress = controller.progress;
+        }
+    }
+
+    void UpdateWolfAnimator()
+    {
+        if (!wolfActive || wolfAnimator == null)
+            return;
+
+        // --- Death sequence takes over all animation control ---
+        if (wolfDeathPhase > 0)
+        {
+            UpdateWolfDeathSequence();
+            return;
+        }
+
+        // --- Before the player presses Space, just idle ---
+        if (!controller.HasStarted)
+            return;
+
+        // --- Start the death sequence when boss is defeated ---
+        if (director.IsBossDying)
+        {
+            StartWolfDeathSequence();
+            return;
+        }
+
+        float half = controller.barHeight * 0.5f;
+        bool bossInsideBar =
+            boss.position > controller.barPosition - half &&
+            boss.position < controller.barPosition + half;
+
+        // Attack when the boss is OUTSIDE the bar (wolf is winning)
+        wolfAnimator.SetBool("IsAttacking", !bossInsideBar);
+
+        // Run when the boss AI is moving fast
+        float bossSpeed = Mathf.Abs(boss.position - lastProgress);
+        wolfAnimator.SetBool("IsRunning", bossSpeed > 0.01f && bossInsideBar);
+
+        // Hurt flash whenever progress jumps up (player is catching the boss)
+        if (controller.progress > lastProgress + 0.01f && bossInsideBar)
+            wolfAnimator.SetTrigger("IsHurt");
+
+        lastProgress = controller.progress;
+    }
+
+    // ---------------- WOLF DEATH SEQUENCE ----------------
+
+    void StartWolfDeathSequence()
+    {
+        wolfDeathPhase = 1; // flashing
+        wolfFlashCounter = 0;
+        wolfFlashOn = false;
+        wolfDeathTimer = wolfFlashInterval;
+
+        // Stop all gameplay animations
+        wolfAnimator.SetBool("IsAttacking", false);
+        wolfAnimator.SetBool("IsRunning", false);
+        wolfAnimator.Play("Wolf_Idle", 0, 0f);
+
+        // Override director's default timer — we'll call FinishBossTransition ourselves
+        director.SetDeathTimer(999f);
+    }
+
+    void UpdateWolfDeathSequence()
+    {
+        wolfDeathTimer -= Time.deltaTime;
+
+        switch (wolfDeathPhase)
+        {
+            // Phase 1: Flash red/white
+            case 1:
+                if (wolfDeathTimer <= 0f)
+                {
+                    wolfFlashOn = !wolfFlashOn;
+                    wolfImage.color = wolfFlashOn ? Color.red : Color.white;
+                    wolfFlashCounter++;
+                    wolfDeathTimer = wolfFlashInterval;
+
+                    // Each on+off = 2 counts, so total flashes = wolfFlashCount * 2
+                    if (wolfFlashCounter >= wolfFlashCount * 2)
+                    {
+                        // End on white, then start death anim
+                        wolfImage.color = Color.white;
+                        wolfDeathPhase = 2;
+                        wolfDeathTimer = wolfDeathAnimDuration;
+                        wolfAnimator.SetTrigger("IsDead");
+                    }
+                }
+                break;
+
+            // Phase 2: Death animation playing
+            case 2:
+                if (wolfDeathTimer <= 0f)
+                {
+                    // Wolf disappears
+                    wolfImage.gameObject.SetActive(false);
+                    wolfDeathPhase = 3;
+
+                    // Tell director the death sequence is done
+                    director.FinishBossTransition();
+                }
+                break;
+        }
     }
 
     void SetRotationActive(bool active)
