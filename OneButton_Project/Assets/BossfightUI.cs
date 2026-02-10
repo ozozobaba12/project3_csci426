@@ -64,6 +64,8 @@ public class BossfightUI : MonoBehaviour
     public float wolfDeathAnimDuration = 1.0f;
     [Tooltip("Particle effect prefab spawned where the wolf was after it disappears.")]
     public GameObject wolfDeathExplosionPrefab;
+    [Tooltip("How long to wait for the explosion to play before transitioning (seconds).")]
+    public float explosionWaitDuration = 3f;
 
     [Header("Boss Defeat Effects")]
     [Tooltip("Pixel displacement of the impact shake when a boss is defeated.")]
@@ -93,8 +95,8 @@ public class BossfightUI : MonoBehaviour
     int wolfFlashCounter;
     bool wolfFlashOn;
     GameObject wolfExplosionObj;
-    ParticleSystem wolfExplosionPS;
-    bool wolfExplosionStartedPlaying;
+    RenderTexture explosionRT;
+    int mainCamOriginalMask;
 
     // Universal boss defeat effects
     bool defeatEffectsStarted;
@@ -467,42 +469,17 @@ public class BossfightUI : MonoBehaviour
                     // Wolf disappears, explosion takes its place
                     wolfImage.gameObject.SetActive(false);
 
-                    // Hide background so the world-space particles are visible
-                    if (boss1Background != null)
-                        boss1Background.gameObject.SetActive(false);
-
                     SpawnWolfExplosion();
+                    wolfDeathTimer = explosionWaitDuration;
                     wolfDeathPhase = 3;
-                    wolfExplosionStartedPlaying = false;
                 }
                 break;
 
-            // Phase 3: Explosion playing — wait for particle system to actually finish
+            // Phase 3: Explosion playing — wait for its duration, then transition
             case 3:
-                if (wolfExplosionPS != null)
+                if (wolfDeathTimer <= 0f)
                 {
-                    // Wait until the particle system has started emitting
-                    // before we begin checking IsAlive (avoids false-negative on frame 0)
-                    if (!wolfExplosionStartedPlaying)
-                    {
-                        if (wolfExplosionPS.particleCount > 0)
-                            wolfExplosionStartedPlaying = true;
-                    }
-                    else if (!wolfExplosionPS.IsAlive(true))
-                    {
-                        // Particles finished — clean up and transition
-                        Destroy(wolfExplosionObj);
-                        wolfExplosionObj = null;
-                        wolfExplosionPS = null;
-                        wolfDeathPhase = 4;
-                        director.FinishBossTransition();
-                    }
-                }
-                else
-                {
-                    // No particle system found — just transition
-                    if (wolfExplosionObj != null)
-                        Destroy(wolfExplosionObj);
+                    CleanUpExplosion();
                     wolfDeathPhase = 4;
                     director.FinishBossTransition();
                 }
@@ -510,25 +487,97 @@ public class BossfightUI : MonoBehaviour
         }
     }
 
+    const int ExplosionLayer = 31;
+
     void SpawnWolfExplosion()
     {
         if (wolfDeathExplosionPrefab == null)
             return;
 
         // Get the true screen-space center of the wolf rect
-        // (rectTransform.position can be off when Scale X is -1)
         Vector3[] corners = new Vector3[4];
         wolfImage.rectTransform.GetWorldCorners(corners);
         Vector3 center = (corners[0] + corners[2]) * 0.5f;
 
-        // Convert screen position to world z=0 plane (standard 2D depth)
+        // Convert screen position to world z=0 plane
         Camera cam = Camera.main;
         float distToZero = Mathf.Abs(cam.transform.position.z);
         Vector3 worldPos = cam.ScreenToWorldPoint(
             new Vector3(center.x, center.y, distToZero));
 
+        // Instantiate and move to a dedicated layer
         wolfExplosionObj = Instantiate(wolfDeathExplosionPrefab, worldPos, Quaternion.identity);
-        wolfExplosionPS = wolfExplosionObj.GetComponentInChildren<ParticleSystem>();
+        SetLayerRecursive(wolfExplosionObj, ExplosionLayer);
+
+        // Stop the main camera from rendering the explosion layer
+        mainCamOriginalMask = cam.cullingMask;
+        cam.cullingMask &= ~(1 << ExplosionLayer);
+
+        // Create a RenderTexture matching the screen
+        explosionRT = new RenderTexture(Screen.width, Screen.height, 24, RenderTextureFormat.ARGB32);
+        explosionRT.Create();
+
+        // Dedicated camera that only renders the explosion to the RenderTexture
+        GameObject camObj = new GameObject("ExplosionCam");
+        Camera explosionCam = camObj.AddComponent<Camera>();
+        explosionCam.orthographic = cam.orthographic;
+        explosionCam.orthographicSize = cam.orthographicSize;
+        explosionCam.fieldOfView = cam.fieldOfView;
+        explosionCam.transform.position = cam.transform.position;
+        explosionCam.transform.rotation = cam.transform.rotation;
+        explosionCam.nearClipPlane = cam.nearClipPlane;
+        explosionCam.farClipPlane = cam.farClipPlane;
+        explosionCam.clearFlags = CameraClearFlags.SolidColor;
+        explosionCam.backgroundColor = Color.clear;
+        explosionCam.cullingMask = 1 << ExplosionLayer;
+        explosionCam.targetTexture = explosionRT;
+        camObj.transform.SetParent(wolfExplosionObj.transform);
+
+        // Overlay canvas with high sort order to render on top of the main UI
+        GameObject canvasObj = new GameObject("ExplosionCanvas");
+        Canvas expCanvas = canvasObj.AddComponent<Canvas>();
+        expCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        expCanvas.sortingOrder = 100;
+        canvasObj.transform.SetParent(wolfExplosionObj.transform);
+
+        // Fullscreen RawImage displaying the RenderTexture
+        GameObject rawImgObj = new GameObject("ExplosionImage");
+        rawImgObj.transform.SetParent(canvasObj.transform, false);
+        RectTransform rect = rawImgObj.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        RawImage rawImg = rawImgObj.AddComponent<RawImage>();
+        rawImg.texture = explosionRT;
+        rawImg.raycastTarget = false;
+    }
+
+    void CleanUpExplosion()
+    {
+        // Restore main camera culling mask
+        if (Camera.main != null)
+            Camera.main.cullingMask = mainCamOriginalMask;
+
+        // Destroy the explosion hierarchy (includes the camera and canvas)
+        if (wolfExplosionObj != null)
+            Destroy(wolfExplosionObj);
+        wolfExplosionObj = null;
+
+        // Release the RenderTexture
+        if (explosionRT != null)
+        {
+            explosionRT.Release();
+            Destroy(explosionRT);
+            explosionRT = null;
+        }
+    }
+
+    void SetLayerRecursive(GameObject obj, int layer)
+    {
+        obj.layer = layer;
+        foreach (Transform child in obj.transform)
+            SetLayerRecursive(child.gameObject, layer);
     }
 
     void SetRotationActive(bool active)
