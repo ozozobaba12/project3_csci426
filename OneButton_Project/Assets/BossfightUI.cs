@@ -101,11 +101,27 @@ public class BossfightUI : MonoBehaviour
     [Tooltip("Background Image that only shows during Boss 3. Disabled for other bosses.")]
     public Image boss3Background;
 
+    [Header("Dragon Phase 2 Transformation")]
+    [Tooltip("The replacement dragon Image shown after the phase 2 transformation.")]
+    public Image dragonPhase2Image;
+    [Tooltip("How long gameplay freezes when the threshold is reached (seconds).")]
+    public float transformFreezeDuration = 1.5f;
+    [Tooltip("How fast the fill bar drains back to starting amount (units per second).")]
+    public float transformDrainRate = 0.4f;
+    [Tooltip("Pixel displacement of the fill bar shake during drain.")]
+    public float transformDrainShake = 6f;
+    [Tooltip("Explosion prefab for the dragon transformation moment.")]
+    public GameObject dragonTransformExplosionPrefab;
+    [Tooltip("How long to wait for the transformation explosion (seconds).")]
+    public float dragonTransformExplosionWait = 1.5f;
+
     [Header("Dragon Death Sequence")]
-    [Tooltip("Number of red flashes before the dragon disappears.")]
-    public int dragonFlashCount = 4;
-    [Tooltip("Duration of each flash on/off cycle (seconds).")]
-    public float dragonFlashInterval = 0.1f;
+    [Tooltip("Duration of the shake + glow death effect before the explosion (seconds).")]
+    public float dragonDeathEffectDuration = 1.5f;
+    [Tooltip("Starting shake intensity (pixels).")]
+    public float dragonDeathShakeMin = 2f;
+    [Tooltip("Maximum shake intensity at the peak (pixels).")]
+    public float dragonDeathShakeMax = 15f;
     [Tooltip("Particle effect prefab spawned where the dragon was after it disappears.")]
     public GameObject dragonDeathExplosionPrefab;
     [Tooltip("How long to wait for the explosion to play before transitioning (seconds).")]
@@ -161,11 +177,16 @@ public class BossfightUI : MonoBehaviour
     Animator dragonAnimator;
     bool dragonActive;
 
-    // Dragon death sequence state: 0=not dying, 1=flashing, 2=explosion, 3=done
+    // Dragon transformation: 0=waiting, 1=freeze, 2=drain, 3=explosion+swap, 4=done
+    int dragonTransformPhase;
+    float dragonTransformTimer;
+
+    // Dragon death sequence state: 0=not dying, 1=shake+glow, 2=explosion, 3=done
     int dragonDeathPhase;
     float dragonDeathTimer;
-    int dragonFlashCounter;
-    bool dragonFlashOn;
+    RectTransform dragonDeathGlowRoot; // mask container (silhouette shape)
+    Image dragonDeathGlowFill;         // white fill inside mask (fades in)
+    Vector2 dragonDeathBasePos;        // sprite base position for shake offset
 
     // Universal boss defeat effects
     bool defeatEffectsStarted;
@@ -533,27 +554,22 @@ public class BossfightUI : MonoBehaviour
             victoryShakeTimer = victoryShakeDuration;
         }
 
-        // Brief punchy shake on column + progress bar
+        // Brief punchy screen-wide shake (uses screenShakeWrapper so nothing overwrites it)
         if (victoryShakeTimer > 0f)
         {
             victoryShakeTimer -= Time.deltaTime;
 
-            // Intensity decays linearly so it feels like an impact
             float t = Mathf.Clamp01(victoryShakeTimer / victoryShakeDuration);
             float intensity = t * victoryShakeIntensity;
             Vector2 shake = Random.insideUnitCircle * intensity;
 
-            column.anchoredPosition = shake;
-
-            if (progressBarRect != null)
-                progressBarRect.anchoredPosition = progressBarBasePos + shake;
+            if (screenShakeWrapper != null)
+                screenShakeWrapper.anchoredPosition = shake;
         }
         else
         {
-            column.anchoredPosition = Vector2.zero;
-
-            if (progressBarRect != null)
-                progressBarRect.anchoredPosition = progressBarBasePos;
+            if (screenShakeWrapper != null)
+                screenShakeWrapper.anchoredPosition = Vector2.zero;
         }
     }
 
@@ -1069,11 +1085,17 @@ public class BossfightUI : MonoBehaviour
     {
         dragonActive = active;
         dragonDeathPhase = 0;
+        dragonTransformPhase = 0;
+
         if (dragonImage != null)
         {
             dragonImage.gameObject.SetActive(active);
             dragonImage.color = Color.white; // reset tint
         }
+
+        // Phase 2 sprite is always hidden until the transformation reveals it
+        if (dragonPhase2Image != null)
+            dragonPhase2Image.gameObject.SetActive(false);
 
         if (boss3Background != null)
         {
@@ -1090,28 +1112,37 @@ public class BossfightUI : MonoBehaviour
         }
     }
 
+    // Returns whichever dragon image is currently on-screen
+    Image ActiveDragonImage =>
+        dragonTransformPhase >= 3 && dragonPhase2Image != null
+            ? dragonPhase2Image : dragonImage;
+
     void UpdateDragonAnimator()
     {
-        if (!dragonActive || dragonAnimator == null)
+        if (!dragonActive)
             return;
 
-        // --- Death sequence takes over all animation control ---
+        // --- Death sequence runs regardless of transformation state ---
         if (dragonDeathPhase > 0)
         {
             UpdateDragonDeathSequence();
             return;
         }
 
-        // --- Before the player presses Space, just idle ---
-        if (!controller.HasStarted)
-            return;
-
-        // --- Start the death sequence when boss is defeated ---
-        if (director.IsBossDying)
+        // --- Detect boss defeat (works before and after transformation) ---
+        if (controller.HasStarted && director.IsBossDying)
         {
             StartDragonDeathSequence();
             return;
         }
+
+        // --- Skip normal animation during / after transformation ---
+        if (dragonTransformPhase >= 1 || dragonAnimator == null)
+            return;
+
+        // --- Before the player presses Space, just idle ---
+        if (!controller.HasStarted)
+            return;
 
         // Attack when boss is outside the player's bar, idle when inside
         float half = controller.barHeight * 0.5f;
@@ -1134,57 +1165,228 @@ public class BossfightUI : MonoBehaviour
 
     void StartDragonDeathSequence()
     {
-        dragonDeathPhase = 1; // flashing
-        dragonFlashCounter = 0;
-        dragonFlashOn = false;
-        dragonDeathTimer = dragonFlashInterval;
+        dragonDeathPhase = 1;
+        dragonDeathTimer = dragonDeathEffectDuration;
+        Image activeImg = ActiveDragonImage;
 
-        // Freeze on idle during death
-        dragonAnimator.SetBool("IsAttacking", false);
-        dragonAnimator.Play("Dragon_Idle", 0, 0f);
+        // If still the original dragon, freeze it on idle
+        if (dragonTransformPhase < 3 && dragonAnimator != null)
+        {
+            dragonAnimator.SetBool("IsAttacking", false);
+            dragonAnimator.Play("Dragon_Idle", 0, 0f);
+            dragonAnimator.speed = 0f;
+        }
 
-        // Override director's default timer — we'll call FinishBossTransition ourselves
+        // Stop gravity and snap column / progress bar back to rest
+        gravityPhase2 = false;
+        column.anchoredPosition = Vector2.zero;
+        column.localRotation = Quaternion.identity;
+        columnVelocity = Vector2.zero;
+        columnOffset = Vector2.zero;
+        columnAngularVel = 0f;
+        columnAngle = 0f;
+
+        if (progressBarRect != null)
+        {
+            progressBarRect.anchoredPosition = progressBarBasePos;
+            progressBarRect.localRotation = Quaternion.identity;
+        }
+        progressBarVelocity = Vector2.zero;
+        progressBarOffset = Vector2.zero;
+        progressBarAngularVel = 0f;
+        progressBarAngle = 0f;
+
+        // Cache base position for shake offset
+        if (activeImg != null)
+            dragonDeathBasePos = activeImg.rectTransform.anchoredPosition;
+
+        // Freeze Phase 2 animator too (if active)
+        if (dragonPhase2Image != null)
+        {
+            Animator p2Anim = dragonPhase2Image.GetComponent<Animator>();
+            if (p2Anim != null) p2Anim.speed = 0f;
+        }
+
+        // Create a silhouette glow: Mask (dragon sprite shape) + white fill child
+        if (activeImg != null)
+        {
+            RectTransform srcRT = activeImg.rectTransform;
+
+            // Mask container — uses the dragon's current sprite for clipping
+            GameObject maskGo = new GameObject("DragonDeathGlow");
+            Image maskImg = maskGo.AddComponent<Image>();
+            maskImg.sprite = activeImg.sprite;
+            maskImg.type = activeImg.type;
+            maskImg.preserveAspect = activeImg.preserveAspect;
+            maskImg.color = Color.white;           // full alpha so mask works
+            maskImg.raycastTarget = false;
+
+            Mask mask = maskGo.AddComponent<Mask>();
+            mask.showMaskGraphic = false;           // hide mask image itself
+
+            dragonDeathGlowRoot = maskImg.rectTransform;
+            dragonDeathGlowRoot.SetParent(srcRT.parent, false);
+            dragonDeathGlowRoot.anchorMin = srcRT.anchorMin;
+            dragonDeathGlowRoot.anchorMax = srcRT.anchorMax;
+            dragonDeathGlowRoot.pivot = srcRT.pivot;
+            dragonDeathGlowRoot.anchoredPosition = srcRT.anchoredPosition;
+            dragonDeathGlowRoot.sizeDelta = srcRT.sizeDelta;
+            dragonDeathGlowRoot.localScale = srcRT.localScale;
+
+            // White fill inside the mask — fades from transparent to opaque
+            GameObject fillGo = new GameObject("GlowFill");
+            dragonDeathGlowFill = fillGo.AddComponent<Image>();
+            dragonDeathGlowFill.color = new Color(1f, 1f, 1f, 0f);
+            dragonDeathGlowFill.raycastTarget = false;
+            RectTransform fillRT = dragonDeathGlowFill.rectTransform;
+            fillRT.SetParent(dragonDeathGlowRoot, false);
+            fillRT.anchorMin = Vector2.zero;
+            fillRT.anchorMax = Vector2.one;
+            fillRT.offsetMin = Vector2.zero;
+            fillRT.offsetMax = Vector2.zero;
+        }
+
         director.SetDeathTimer(999f);
     }
 
     void UpdateDragonDeathSequence()
     {
         dragonDeathTimer -= Time.deltaTime;
+        Image activeImg = ActiveDragonImage;
 
         switch (dragonDeathPhase)
         {
-            // Phase 1: Flash red/white
+            // Phase 1: Escalating shake + white glow
             case 1:
+                float elapsed = dragonDeathEffectDuration - dragonDeathTimer;
+                float t = Mathf.Clamp01(elapsed / dragonDeathEffectDuration);
+
+                // Shake: ramps up quadratically for a dramatic escalation
+                float shakeIntensity = Mathf.Lerp(dragonDeathShakeMin, dragonDeathShakeMax, t * t);
+                Vector2 shake = Random.insideUnitCircle * shakeIntensity;
+
+                if (activeImg != null)
+                    activeImg.rectTransform.anchoredPosition = dragonDeathBasePos + shake;
+
+                // White silhouette glow fades in, mask tracks the shaking sprite
+                if (dragonDeathGlowFill != null)
+                {
+                    dragonDeathGlowFill.color = new Color(1f, 1f, 1f, t);
+                }
+                if (dragonDeathGlowRoot != null)
+                {
+                    dragonDeathGlowRoot.anchoredPosition =
+                        activeImg != null
+                            ? activeImg.rectTransform.anchoredPosition
+                            : dragonDeathBasePos;
+                }
+
                 if (dragonDeathTimer <= 0f)
                 {
-                    dragonFlashOn = !dragonFlashOn;
-                    dragonImage.color = dragonFlashOn ? Color.red : Color.white;
-                    dragonFlashCounter++;
-                    dragonDeathTimer = dragonFlashInterval;
-
-                    if (dragonFlashCounter >= dragonFlashCount * 2)
+                    // Restore position, hide dragon, destroy overlay
+                    if (activeImg != null)
                     {
-                        // No death anim — go straight to disappear + explosion
-                        dragonImage.color = Color.white;
-                        dragonImage.gameObject.SetActive(false);
-
-                        if (boss3Background != null)
-                            boss3Background.gameObject.SetActive(false);
-
-                        SpawnBossExplosion(dragonDeathExplosionPrefab, dragonImage.rectTransform);
-                        dragonDeathTimer = Mathf.Max(dragonExplosionWaitDuration, 0.5f);
-                        dragonDeathPhase = 2;
+                        activeImg.rectTransform.anchoredPosition = dragonDeathBasePos;
+                        activeImg.gameObject.SetActive(false);
                     }
+                    if (dragonDeathGlowRoot != null)
+                    {
+                        Destroy(dragonDeathGlowRoot.gameObject);
+                        dragonDeathGlowRoot = null;
+                        dragonDeathGlowFill = null;
+                    }
+
+                    // Explosion (background stays visible)
+                    SpawnBossExplosion(dragonDeathExplosionPrefab,
+                        activeImg != null ? activeImg.rectTransform : dragonImage.rectTransform);
+                    dragonDeathTimer = Mathf.Max(dragonExplosionWaitDuration, 0.5f);
+                    dragonDeathPhase = 2;
                 }
                 break;
 
-            // Phase 2: Explosion playing — wait for its duration, then transition
+            // Phase 2: Explosion — wait, then transition
             case 2:
                 if (dragonDeathTimer <= 0f)
                 {
                     CleanUpExplosion();
                     dragonDeathPhase = 3;
                     director.FinishBossTransition();
+                }
+                break;
+        }
+    }
+
+    // ---------------- DRAGON PHASE 2 TRANSFORMATION ----------------
+
+    void UpdateDragonTransformation()
+    {
+        switch (dragonTransformPhase)
+        {
+            // Phase 0: Normal gameplay — watch for threshold
+            case 0:
+                if (controller.progress >= gravityPhaseThreshold)
+                {
+                    dragonTransformPhase = 1;
+                    dragonTransformTimer = transformFreezeDuration;
+
+                    // Freeze everything
+                    controller.isFrozen = true;
+                    boss.isActive = false;
+                    if (dragonAnimator != null)
+                        dragonAnimator.speed = 0f;
+                }
+                break;
+
+            // Phase 1: Frozen pause
+            case 1:
+                dragonTransformTimer -= Time.deltaTime;
+                if (dragonTransformTimer <= 0f)
+                    dragonTransformPhase = 2;
+                break;
+
+            // Phase 2: Fill bar drains back to starting amount with shake
+            case 2:
+                controller.progress -= transformDrainRate * Time.deltaTime;
+
+                if (controller.progress <= 0.20f)
+                {
+                    controller.progress = 0.20f;
+
+                    // Dragon disappears, Phase 2 sprite appears, explosion plays
+                    if (dragonImage != null)
+                        dragonImage.gameObject.SetActive(false);
+                    if (dragonPhase2Image != null)
+                        dragonPhase2Image.gameObject.SetActive(true);
+
+                    SpawnBossExplosion(dragonTransformExplosionPrefab,
+                        dragonImage != null ? dragonImage.rectTransform : null);
+
+                    dragonTransformTimer = Mathf.Max(dragonTransformExplosionWait, 0.5f);
+                    dragonTransformPhase = 3;
+                }
+                break;
+
+            // Phase 3: Explosion playing — wait, then start gravity
+            case 3:
+                dragonTransformTimer -= Time.deltaTime;
+                if (dragonTransformTimer <= 0f)
+                {
+                    CleanUpExplosion();
+
+                    // Unfreeze gameplay
+                    controller.isFrozen = false;
+                    boss.isActive = true;
+                    if (dragonAnimator != null)
+                        dragonAnimator.speed = 1f;
+
+                    // Kick off gravity
+                    gravityPhase2 = true;
+                    gravityIsOn = true;
+                    gravityToggleTimer = gravityOnDuration;
+                    columnAngularVel = Random.Range(-tumbleImpulse, tumbleImpulse);
+                    progressBarAngularVel = Random.Range(-tumbleImpulse, tumbleImpulse);
+
+                    dragonTransformPhase = 4;
                 }
                 break;
         }
@@ -1214,6 +1416,7 @@ public class BossfightUI : MonoBehaviour
 
         gravityMechanicActive = active;
         gravityPhase2 = false;
+        dragonTransformPhase = 0;
         gravityIsOn = false;
         gravityToggleTimer = 0f;
         columnVelocity = Vector2.zero;
@@ -1231,19 +1434,11 @@ public class BossfightUI : MonoBehaviour
         if (!gravityMechanicActive)
             return;
 
-        // One-shot phase 2 trigger
+        // Dragon transformation sequence replaces the old one-shot trigger
         if (!gravityPhase2)
         {
-            if (controller.progress >= gravityPhaseThreshold)
-            {
-                gravityPhase2 = true;
-                gravityIsOn = true;
-                gravityToggleTimer = gravityOnDuration;
-                // Initial tumble impulse
-                columnAngularVel = Random.Range(-tumbleImpulse, tumbleImpulse);
-                progressBarAngularVel = Random.Range(-tumbleImpulse, tumbleImpulse);
-            }
-            return; // Phase 1 is normal gameplay
+            UpdateDragonTransformation();
+            return; // gravity simulation doesn't run until transformation completes
         }
 
         // --- Toggle timer ---

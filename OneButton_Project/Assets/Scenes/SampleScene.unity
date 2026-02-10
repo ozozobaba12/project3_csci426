@@ -149,6 +149,7 @@ RectTransform:
   m_Children:
   - {fileID: 549013410}
   - {fileID: 1403884247}
+  - {fileID: 2014961861}
   m_Father: {fileID: 741008248}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -329,8 +330,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_AnchoredPosition: {x: 628.18, y: 227.78}
+  m_SizeDelta: {x: 624.363, y: 555.555}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!95 &245312412
 Animator:
@@ -423,6 +424,7 @@ RectTransform:
   - {fileID: 597345237}
   - {fileID: 1236803191}
   - {fileID: 245312411}
+  - {fileID: 726973068}
   m_Father: {fileID: 741008248}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -901,6 +903,104 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 703568029}
   m_CullTransparentMesh: 1
+--- !u!1 &726973067
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 726973068}
+  - component: {fileID: 726973071}
+  - component: {fileID: 726973070}
+  - component: {fileID: 726973069}
+  m_Layer: 5
+  m_Name: DragonPhase2Image
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &726973068
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726973067}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: -1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 295410027}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 628.18, y: 58}
+  m_SizeDelta: {x: 669.444, y: 1356.9347}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!95 &726973069
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726973067}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 8d374d7514f71ce46ad0bd69773457ae, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &726973070
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726973067}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 6416378452520914662, guid: 973264ee7af7d394a9433f958cdd0048, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 1
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &726973071
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726973067}
+  m_CullTransparentMesh: 1
 --- !u!1 &741008244
 GameObject:
   m_ObjectHideFlags: 0
@@ -1220,7 +1320,7 @@ MonoBehaviour:
   catchRate: 0.45
   escapeRate: 0.8
   drainDelay: 0
-  lossDelay: 0.35
+  lossDelay: 0.4
   boss: {fileID: 1984216066}
   isFrozen: 0
 --- !u!4 &835283579
@@ -1374,7 +1474,7 @@ MonoBehaviour:
   tickShakeInterval: 1
   tickShakeIntensity: 10
   tickShakeDuration: 0.1
-  gravityPhaseThreshold: 0.6
+  gravityPhaseThreshold: 0.8
   gravityOnDuration: 3
   gravityOffDuration: 3
   gravityAccel: 800
@@ -1396,9 +1496,22 @@ MonoBehaviour:
   clockHurtCooldown: 0.4
   clockFlashCount: 4
   clockFlashInterval: 0.1
-  clockDeathAnimDuration: 1.5
+  clockDeathAnimDuration: 0.7
   clockDeathExplosionPrefab: {fileID: 188448375238001462, guid: ceb284bdb4a67b6479894ab011885e9e, type: 3}
   clockExplosionWaitDuration: 1.5
+  dragonImage: {fileID: 245312413}
+  boss3Background: {fileID: 2014961859}
+  dragonPhase2Image: {fileID: 726973070}
+  transformFreezeDuration: 1.5
+  transformDrainRate: 0.4
+  transformDrainShake: 6
+  dragonTransformExplosionPrefab: {fileID: 8970668011737306692, guid: 9c1f6f57d78072b42a60c61b9eed279f, type: 3}
+  dragonTransformExplosionWait: 1.5
+  dragonDeathEffectDuration: 2
+  dragonDeathShakeMin: 2
+  dragonDeathShakeMax: 15
+  dragonDeathExplosionPrefab: {fileID: 7452553202921276299, guid: 84d71e12a413ef547a148cc2cfa5eb86, type: 3}
+  dragonExplosionWaitDuration: 1.5
   victoryShakeIntensity: 20
   victoryShakeDuration: 0.2
   graceShakeMax: 8
@@ -1826,7 +1939,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BossAI
   position: 0.5
   baseSpeed: 0.4
-  speedPerDifficulty: 0.35
+  speedPerDifficulty: 0.25
   difficultyCurve: 0.65
   baseDecisionTime: 1.2
   minDecisionTime: 0.6
@@ -1847,6 +1960,81 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1215651762}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2014961858
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2014961861}
+  - component: {fileID: 2014961860}
+  - component: {fileID: 2014961859}
+  m_Layer: 5
+  m_Name: Boss3Background
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2014961859
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2014961858}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: -1641259752620419291, guid: fc08b44d9a93fd64eb78181b384f1594, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &2014961860
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2014961858}
+  m_CullTransparentMesh: 1
+--- !u!224 &2014961861
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2014961858}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 60598193}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 65.999, y: -0.0015869141}
+  m_SizeDelta: {x: 1820, y: 980}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
