@@ -46,6 +46,11 @@ public class EndlessDirector : MonoBehaviour
     float bossDeathTimer;
     public bool IsBossDying => bossDying;
 
+    // Player death sequence state
+    bool playerDying;
+    float playerDeathTimer;
+    public bool IsPlayerDying => playerDying;
+
     Canvas canvas;
     GameObject pauseMenuRoot;
     GameObject deathScreenRoot;
@@ -93,9 +98,18 @@ public class EndlessDirector : MonoBehaviour
             return;
 
         // 1 to instantly skip/kill the current boss (debug)
-        if (Input.GetKeyDown(KeyCode.Alpha1) && !bossDying)
+        if (Input.GetKeyDown(KeyCode.Alpha1) && !bossDying && !playerDying)
         {
             controller.progress = 1f;
+        }
+
+        // --- Player death sequence: wait for UI to finish, then show death screen ---
+        if (playerDying)
+        {
+            playerDeathTimer -= Time.deltaTime;
+            if (playerDeathTimer <= 0f)
+                FinishPlayerDeath();
+            return;
         }
 
         // --- Boss death sequence: wait, then transition ---
@@ -115,8 +129,12 @@ public class EndlessDirector : MonoBehaviour
 
         if (controller.PlayerLost())
         {
-            gameOver = true;
-            Time.timeScale = 0f;
+            // Freeze gameplay — bar, boss icon, and progress all stop
+            controller.isFrozen = true;
+            boss.isActive = false;
+
+            playerDying = true;
+            playerDeathTimer = 999f; // BossfightUI will override via SetPlayerDeathTimer
             return;
         }
 
@@ -157,6 +175,26 @@ public class EndlessDirector : MonoBehaviour
     public void SetDeathTimer(float duration)
     {
         bossDeathTimer = duration;
+    }
+
+    /// <summary>
+    /// Overrides the player death timer so the UI can drive the sequence.
+    /// </summary>
+    public void SetPlayerDeathTimer(float duration)
+    {
+        playerDeathTimer = duration;
+    }
+
+    /// <summary>
+    /// Called by BossfightUI when the player death sequence is done.
+    /// Freezes the game and shows the death screen.
+    /// </summary>
+    public void FinishPlayerDeath()
+    {
+        playerDying = false;
+        gameOver = true;
+        Time.timeScale = 0f;
+        ShowDeathScreen();
     }
 
     // ========================================================

@@ -48,6 +48,10 @@ public class BossfightUI : MonoBehaviour
     public float tumbleImpulse = 120f;
     [Tooltip("How quickly spin decays when floating (0 = never, higher = faster).")]
     public float tumbleDamping = 2f;
+    [Tooltip("Additional bar height reduction during Phase 2 (stacks with difficulty shrink). Higher = smaller bar.")]
+    public float phase2BarShrink = 0.05f;
+    [Tooltip("Absolute minimum bar height during Phase 2 so it never fully disappears.")]
+    public float phase2MinBarHeight = 0.08f;
 
     [Header("Boss 1 — Wolf Visuals")]
     [Tooltip("The wolf Image (UI) on the right side of the screen. Disabled for other bosses.")]
@@ -127,6 +131,27 @@ public class BossfightUI : MonoBehaviour
     [Tooltip("How long to wait for the explosion to play before transitioning (seconds).")]
     public float dragonExplosionWaitDuration = 3f;
 
+    [Header("Player Character Visuals")]
+    [Tooltip("The player character Image (UI). Animated with idle/attack/death.")]
+    public Image playerCharImage;
+
+    [Header("Player Death Sequence")]
+    [Tooltip("Number of red flashes before the player death animation plays.")]
+    public int playerFlashCount = 4;
+    [Tooltip("Duration of each flash on/off cycle (seconds).")]
+    public float playerFlashInterval = 0.1f;
+    [Tooltip("How long the death animation plays before the death screen appears (seconds). Match your player_death clip length.")]
+    public float playerDeathAnimDuration = 1.0f;
+
+    [Header("Lightning Attack Effect")]
+    [Tooltip("The lightning bolt sprite (from lightning.png).")]
+    public Sprite lightningSprite;
+    [Tooltip("Seconds between each on/off flash of the lightning bolt.")]
+    public float lightningFlashInterval = 0.06f;
+    [Tooltip("Normalized time (0-1) in the attack animation when the lightning starts. 0.5 = halfway / frame 5.")]
+    [Range(0f, 1f)]
+    public float lightningStartTime = 0.5f;
+
     [Header("Boss Defeat Effects")]
     [Tooltip("Pixel displacement of the impact shake when a boss is defeated.")]
     public float victoryShakeIntensity = 20f;
@@ -163,9 +188,8 @@ public class BossfightUI : MonoBehaviour
     bool clockActive;
     float clockLastProgress;
 
-    // Clock rotate/hurt animation timing
+    // Clock rotate animation timing
     float clockRotateTailTimer;
-    float clockHurtTimer;
 
     // Clock death sequence state: 0=not dying, 1=flashing, 2=death anim, 3=explosion, 4=done
     int clockDeathPhase;
@@ -187,6 +211,21 @@ public class BossfightUI : MonoBehaviour
     RectTransform dragonDeathGlowRoot; // mask container (silhouette shape)
     Image dragonDeathGlowFill;         // white fill inside mask (fades in)
     Vector2 dragonDeathBasePos;        // sprite base position for shake offset
+
+    // Player character animator (auto-fetched from playerCharImage)
+    Animator playerAnimator;
+
+    // Player death sequence state: 0=not dying, 1=shake, 2=flashing, 3=death anim, 4=done
+    int playerDeathPhase;
+    float playerDeathSeqTimer;
+    int playerFlashCounter;
+    bool playerFlashOn;
+
+    // Lightning bolt effect
+    Image lightningImage;
+    RectTransform lightningRT;
+    float lightningFlashTimer;
+    bool lightningFlashOn;
 
     // Universal boss defeat effects
     bool defeatEffectsStarted;
@@ -220,12 +259,9 @@ public class BossfightUI : MonoBehaviour
     float progressBarAngle;
     RectTransform canvasRect;
 
-    // Death shake state
+    // Progress bar & screen shake references
     RectTransform progressBarRect;
     Vector2 progressBarBasePos;
-    float deathShakeTimer;
-    bool deathShakeActive;
-    bool deathShakeTriggered;
     RectTransform screenShakeWrapper;
 
     void Start()
@@ -249,11 +285,16 @@ public class BossfightUI : MonoBehaviour
         if (dragonImage != null)
             dragonAnimator = dragonImage.GetComponent<Animator>();
 
+        // Cache player character animator
+        if (playerCharImage != null)
+            playerAnimator = playerCharImage.GetComponent<Animator>();
+
         // Start hidden — DetectBossTransition will enable on first frame
         SetWolfActive(false);
         SetClockActive(false);
         SetDragonActive(false);
 
+        CreateLightningBolt();
         CreateColumnBorder();
         CreateRotationWrapper();
 
@@ -476,6 +517,8 @@ public class BossfightUI : MonoBehaviour
         UpdateBossPosition();
         UpdateProgressBar();
         UpdateBossDefeatEffects();
+        UpdatePlayerAnimator();
+        UpdateLightning();
         UpdateWolfAnimator();
         UpdateClockAnimator();
         UpdateDragonAnimator();
@@ -483,6 +526,300 @@ public class BossfightUI : MonoBehaviour
         UpdateGravityMechanic();
         UpdateDeathEffects();
         UpdateCounter();
+    }
+
+    // ---------------- PLAYER CHARACTER ANIMATOR ----------------
+
+    void UpdatePlayerAnimator()
+    {
+        if (playerAnimator == null)
+            return;
+
+        // --- Player death sequence takes over all animation control ---
+        if (playerDeathPhase > 0)
+        {
+            UpdatePlayerDeathSequence();
+            return;
+        }
+
+        // --- Detect player death and start the sequence ---
+        if (director.IsPlayerDying)
+        {
+            StartPlayerDeathSequence();
+            return;
+        }
+
+        // --- Death screen is up: nothing to update ---
+        if (director.IsGameOver)
+            return;
+
+        // --- Before the player presses Space, just idle ---
+        if (!controller.HasStarted)
+            return;
+
+        // --- Freeze during boss death sequences (stay on current frame) ---
+        if (director.IsBossDying)
+            return;
+
+        // --- Determine if boss is inside the player's bar (player is "attacking") ---
+        float half = controller.barHeight * 0.5f;
+        bool bossInsideBar =
+            boss.position > controller.barPosition - half &&
+            boss.position < controller.barPosition + half;
+
+        // Player attacks when catching the boss (inverse of boss attack logic)
+        bool wantsAttack = bossInsideBar;
+        bool currentlyAttacking = playerAnimator.GetBool("IsAttacking");
+
+        // Only switch states when the current animation has finished playing
+        // This is the dragon pattern — prevents animation interruption
+        AnimatorStateInfo state = playerAnimator.GetCurrentAnimatorStateInfo(0);
+        bool clipDone = state.normalizedTime >= 1f;
+
+        if (wantsAttack != currentlyAttacking && clipDone)
+            playerAnimator.SetBool("IsAttacking", wantsAttack);
+    }
+
+    // ---------------- PLAYER DEATH SEQUENCE ----------------
+
+    void StartPlayerDeathSequence()
+    {
+        playerDeathPhase = 1; // screen shake
+        playerDeathSeqTimer = deathShakeDuration;
+
+        // Stop gameplay animation — snap to idle
+        playerAnimator.SetBool("IsAttacking", false);
+        playerAnimator.Play("player_idle", 0, 0f);
+
+        // Hide lightning bolt immediately
+        if (lightningImage != null)
+            lightningImage.enabled = false;
+
+        // Freeze all boss animators so they hold their current frame
+        if (wolfAnimator != null) wolfAnimator.speed = 0f;
+        if (clockAnimator != null) clockAnimator.speed = 0f;
+        if (dragonAnimator != null) dragonAnimator.speed = 0f;
+        if (dragonPhase2Image != null)
+        {
+            Animator p2Anim = dragonPhase2Image.GetComponent<Animator>();
+            if (p2Anim != null) p2Anim.speed = 0f;
+        }
+
+        // Override director's default timer — we'll call FinishPlayerDeath ourselves
+        director.SetPlayerDeathTimer(999f);
+    }
+
+    void UpdatePlayerDeathSequence()
+    {
+        playerDeathSeqTimer -= Time.deltaTime;
+
+        switch (playerDeathPhase)
+        {
+            // Phase 1: Screen-wide shake
+            case 1:
+                if (playerDeathSeqTimer > 0f)
+                {
+                    Vector2 shake = Random.insideUnitCircle * deathShakeIntensity;
+                    if (screenShakeWrapper != null)
+                        screenShakeWrapper.anchoredPosition = shake;
+                }
+                else
+                {
+                    // Restore position, move to flash phase
+                    if (screenShakeWrapper != null)
+                        screenShakeWrapper.anchoredPosition = Vector2.zero;
+
+                    playerDeathPhase = 2;
+                    playerFlashCounter = 0;
+                    playerFlashOn = false;
+                    playerDeathSeqTimer = playerFlashInterval;
+                }
+                break;
+
+            // Phase 2: Red/white flash on the player character
+            case 2:
+                if (playerDeathSeqTimer <= 0f)
+                {
+                    playerFlashOn = !playerFlashOn;
+                    playerCharImage.color = playerFlashOn ? Color.red : Color.white;
+                    playerFlashCounter++;
+                    playerDeathSeqTimer = playerFlashInterval;
+
+                    // Each on+off = 2 counts, so total flashes = playerFlashCount * 2
+                    if (playerFlashCounter >= playerFlashCount * 2)
+                    {
+                        // End on white, then start death anim
+                        playerCharImage.color = Color.white;
+                        playerDeathPhase = 3;
+                        playerDeathSeqTimer = playerDeathAnimDuration;
+                        playerAnimator.SetTrigger("IsDead");
+                    }
+                }
+                break;
+
+            // Phase 3: Death animation playing
+            case 3:
+                if (playerDeathSeqTimer <= 0f)
+                {
+                    playerDeathPhase = 4;
+                    director.FinishPlayerDeath();
+                }
+                break;
+        }
+    }
+
+    void ResetPlayerAnimator()
+    {
+        playerDeathPhase = 0;
+
+        if (playerAnimator != null)
+        {
+            playerAnimator.speed = 1f; // restore in case it was frozen during a boss death
+            playerAnimator.SetBool("IsAttacking", false);
+            playerAnimator.ResetTrigger("IsDead");
+            playerAnimator.Play("player_idle", 0, 0f);
+        }
+
+        // Reset tint in case it was left on a flash color
+        if (playerCharImage != null)
+            playerCharImage.color = Color.white;
+    }
+
+    // ---------------- LIGHTNING ATTACK EFFECT ----------------
+
+    void CreateLightningBolt()
+    {
+        if (lightningSprite == null || playerCharImage == null)
+            return;
+
+        // Parent to the same container as the boss/player sprites (BossSprites)
+        Transform parent = playerCharImage.transform.parent;
+
+        GameObject go = new GameObject("LightningBolt");
+        lightningImage = go.AddComponent<Image>();
+        lightningImage.sprite = lightningSprite;
+        lightningImage.preserveAspect = false;
+        lightningImage.raycastTarget = false;
+
+        lightningRT = lightningImage.rectTransform;
+        lightningRT.SetParent(parent, false);
+
+        // Render behind the character sprites but above backgrounds
+        lightningRT.SetAsFirstSibling();
+
+        // Start hidden
+        lightningImage.enabled = false;
+    }
+
+    void UpdateLightning()
+    {
+        if (lightningImage == null)
+            return;
+
+        bool shouldShow = false;
+
+        if (playerAnimator != null
+            && playerDeathPhase == 0
+            && !director.IsGameOver
+            && !director.IsPlayerDying
+            && !director.IsBossDying
+            && !controller.isFrozen
+            && controller.HasStarted)
+        {
+            AnimatorStateInfo state = playerAnimator.GetCurrentAnimatorStateInfo(0);
+            bool isAttacking = state.IsName("player_attack");
+            float normalizedInCycle = state.normalizedTime % 1f;
+
+            // Show lightning in the second half of each attack cycle (from frame ~5 onward)
+            shouldShow = isAttacking && normalizedInCycle >= lightningStartTime;
+        }
+
+        if (shouldShow)
+        {
+            lightningImage.enabled = true;
+
+            // Flash on/off rapidly
+            lightningFlashTimer -= Time.deltaTime;
+            if (lightningFlashTimer <= 0f)
+            {
+                lightningFlashOn = !lightningFlashOn;
+                lightningImage.color = lightningFlashOn
+                    ? Color.white
+                    : new Color(1f, 1f, 1f, 0f); // transparent off-state
+                lightningFlashTimer = lightningFlashInterval;
+            }
+
+            // Stretch from player to boss
+            PositionLightning();
+        }
+        else
+        {
+            lightningImage.enabled = false;
+            lightningFlashTimer = 0f;
+            lightningFlashOn = true; // start visible on next attack
+        }
+    }
+
+    void PositionLightning()
+    {
+        Image bossImg = GetActiveBossImage();
+        if (bossImg == null || playerCharImage == null)
+            return;
+
+        // --- Get world-space endpoints ---
+
+        // Player: right-center edge
+        Vector3[] playerCorners = new Vector3[4];
+        playerCharImage.rectTransform.GetWorldCorners(playerCorners);
+        // corners: 0=bottom-left, 1=top-left, 2=top-right, 3=bottom-right
+        Vector3 startWorld = (playerCorners[2] + playerCorners[3]) * 0.5f;
+
+        // Boss: center of its rect
+        Vector3[] bossCorners = new Vector3[4];
+        bossImg.rectTransform.GetWorldCorners(bossCorners);
+        Vector3 endWorld = (bossCorners[0] + bossCorners[2]) * 0.5f;
+
+        // --- Convert to local space of the lightning's parent ---
+        Transform parent = lightningRT.parent;
+        Vector2 localStart = parent.InverseTransformPoint(startWorld);
+        Vector2 localEnd = parent.InverseTransformPoint(endWorld);
+
+        // Midpoint, distance, angle
+        Vector2 midpoint = (localStart + localEnd) * 0.5f;
+        Vector2 diff = localEnd - localStart;
+        float distance = diff.magnitude;
+        float angle = Mathf.Atan2(diff.y, diff.x) * Mathf.Rad2Deg;
+
+        // The sprite is naturally vertical (top-to-bottom bolt).
+        // We want its height axis to stretch along the player→boss direction.
+        // Sprite aspect ratio determines the width.
+        float spriteAspect = lightningSprite.rect.width / lightningSprite.rect.height;
+        float boltWidth = distance * spriteAspect;
+
+        lightningRT.anchoredPosition = midpoint;
+        lightningRT.sizeDelta = new Vector2(boltWidth, distance);
+
+        // Rotate so the sprite's vertical axis (height) aligns with player→boss.
+        // The sprite's "top" is the bolt origin — rotate so top points toward start (player).
+        // Default vertical (up) = 90 degrees. To point height along 'angle': rotate by angle + 90.
+        lightningRT.localRotation = Quaternion.Euler(0f, 0f, angle + 90f);
+    }
+
+    Image GetActiveBossImage()
+    {
+        if (wolfActive && wolfImage != null && wolfImage.gameObject.activeSelf)
+            return wolfImage;
+        if (clockActive && clockImage != null && clockImage.gameObject.activeSelf)
+            return clockImage;
+        if (dragonActive)
+        {
+            if (dragonTransformPhase >= 3 && dragonPhase2Image != null
+                && dragonPhase2Image.gameObject.activeSelf)
+                return dragonPhase2Image;
+            if (dragonImage != null && dragonImage.gameObject.activeSelf)
+                return dragonImage;
+        }
+        return null;
     }
 
     // ---------------- PLAYER VISUAL SIZE ----------------
@@ -586,6 +923,9 @@ public class BossfightUI : MonoBehaviour
         defeatEffectsStarted = false;
         victoryShakeTimer = 0f;
 
+        // Reset player character for the new boss
+        ResetPlayerAnimator();
+
         // Boss type cycle: Normal (0) -> Rotation (1) -> Gravity (2)
         int bossType = lastBossCount % 3;
         SetWolfActive(bossType == 0);
@@ -684,6 +1024,9 @@ public class BossfightUI : MonoBehaviour
         wolfAnimator.SetBool("IsAttacking", false);
         wolfAnimator.SetBool("IsRunning", false);
         wolfAnimator.Play("wolf_idle", 0, 0f);
+
+        // Freeze player character on current frame
+        if (playerAnimator != null) playerAnimator.speed = 0f;
 
         // Override director's default timer — we'll call FinishBossTransition ourselves
         director.SetDeathTimer(999f);
@@ -858,7 +1201,6 @@ public class BossfightUI : MonoBehaviour
 
         // Reset animation timers
         clockRotateTailTimer = 0f;
-        clockHurtTimer = 0f;
 
         if (active && clockAnimator != null)
         {
@@ -949,6 +1291,9 @@ public class BossfightUI : MonoBehaviour
         // Play hurt animation during flash phase (not idle)
         clockAnimator.SetBool("IsRotating", false);
         clockAnimator.Play("clock_hurt", 0, 0f);
+
+        // Freeze player character on current frame
+        if (playerAnimator != null) playerAnimator.speed = 0f;
 
         // Override director's default timer — we'll call FinishBossTransition ourselves
         director.SetDeathTimer(999f);
@@ -1177,6 +1522,9 @@ public class BossfightUI : MonoBehaviour
             dragonAnimator.speed = 0f;
         }
 
+        // Freeze player character on current frame
+        if (playerAnimator != null) playerAnimator.speed = 0f;
+
         // Stop gravity and snap column / progress bar back to rest
         gravityPhase2 = false;
         column.anchoredPosition = Vector2.zero;
@@ -1334,6 +1682,8 @@ public class BossfightUI : MonoBehaviour
                     boss.isActive = false;
                     if (dragonAnimator != null)
                         dragonAnimator.speed = 0f;
+                    if (playerAnimator != null)
+                        playerAnimator.speed = 0f;
                 }
                 break;
 
@@ -1378,6 +1728,13 @@ public class BossfightUI : MonoBehaviour
                     boss.isActive = true;
                     if (dragonAnimator != null)
                         dragonAnimator.speed = 1f;
+                    if (playerAnimator != null)
+                        playerAnimator.speed = 1f;
+
+                    // Shrink the player bar for Phase 2 (independent of difficulty scaling)
+                    controller.barHeight = Mathf.Max(
+                        phase2MinBarHeight,
+                        controller.barHeight - phase2BarShrink);
 
                     // Kick off gravity
                     gravityPhase2 = true;
@@ -1541,7 +1898,8 @@ public class BossfightUI : MonoBehaviour
             : progressBarBasePos;
 
         // --- Grace period shake (health bar only) ---
-        if (urgency > 0f && !director.IsGameOver)
+        // Stops once the player death sequence starts (IsPlayerDying) or game is over
+        if (urgency > 0f && !director.IsGameOver && !director.IsPlayerDying)
         {
             // Ramp intensity: squared so it escalates near the end
             float intensity = urgency * urgency * graceShakeMax;
@@ -1551,38 +1909,14 @@ public class BossfightUI : MonoBehaviour
             if (progressBarRect != null)
                 progressBarRect.anchoredPosition = effectiveBase + shake;
         }
-        else if (progressBarRect != null && !deathShakeActive)
+        else if (progressBarRect != null)
         {
             // Restore progress bar to effective base when not shaking
             progressBarRect.anchoredPosition = effectiveBase;
         }
 
-        // --- Death screen shake (brief impact on the whole wrapper) ---
-        if (director.IsGameOver && !deathShakeActive && !deathShakeTriggered)
-        {
-            deathShakeActive = true;
-            deathShakeTimer = deathShakeDuration;
-        }
-
-        if (deathShakeActive && screenShakeWrapper != null)
-        {
-            // Uses unscaledDeltaTime so it works while timeScale == 0
-            deathShakeTimer -= Time.unscaledDeltaTime;
-
-            if (deathShakeTimer > 0f)
-            {
-                // Constant intensity for a punchy feel (like Week 2 project)
-                Vector2 shake = Random.insideUnitCircle * deathShakeIntensity;
-                screenShakeWrapper.anchoredPosition = shake;
-            }
-            else
-            {
-                screenShakeWrapper.anchoredPosition = Vector2.zero;
-                deathShakeActive = false;
-                deathShakeTriggered = true;
-                director.ShowDeathScreen();
-            }
-        }
+        // Note: screen shake and death screen are now driven by the
+        // player death sequence in UpdatePlayerDeathSequence().
     }
 
     // ---------------- COUNTER ----------------

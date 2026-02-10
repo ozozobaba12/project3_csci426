@@ -425,6 +425,7 @@ RectTransform:
   - {fileID: 1236803191}
   - {fileID: 245312411}
   - {fileID: 726973068}
+  - {fileID: 2084812043}
   m_Father: {fileID: 741008248}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -1469,7 +1470,7 @@ MonoBehaviour:
   bossIcon: {fileID: 866514450}
   progressBar: {fileID: 1473319077}
   enemyCounterText: {fileID: 1469896500}
-  rotationInterval: 4
+  rotationInterval: 3
   rotationSpeed: 270
   tickShakeInterval: 1
   tickShakeIntensity: 10
@@ -1482,6 +1483,8 @@ MonoBehaviour:
   bounceFactor: 0.4
   tumbleImpulse: 120
   tumbleDamping: 2
+  phase2BarShrink: 0
+  phase2MinBarHeight: 0.08
   wolfImage: {fileID: 597345238}
   boss1Background: {fileID: 549013411}
   wolfFlashCount: 4
@@ -1512,6 +1515,13 @@ MonoBehaviour:
   dragonDeathShakeMax: 15
   dragonDeathExplosionPrefab: {fileID: 7452553202921276299, guid: 84d71e12a413ef547a148cc2cfa5eb86, type: 3}
   dragonExplosionWaitDuration: 1.5
+  playerCharImage: {fileID: 2084812045}
+  playerFlashCount: 6
+  playerFlashInterval: 0.1
+  playerDeathAnimDuration: 1
+  lightningSprite: {fileID: -2983090718515566234, guid: 57d5c78849f0330459cbe5a3317fe4d8, type: 3}
+  lightningFlashInterval: 0.06
+  lightningStartTime: 0.5
   victoryShakeIntensity: 20
   victoryShakeDuration: 0.2
   graceShakeMax: 8
@@ -1939,7 +1949,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BossAI
   position: 0.5
   baseSpeed: 0.4
-  speedPerDifficulty: 0.25
+  speedPerDifficulty: 0.3
   difficultyCurve: 0.65
   baseDecisionTime: 1.2
   minDecisionTime: 0.6
@@ -2035,6 +2045,104 @@ RectTransform:
   m_AnchoredPosition: {x: 65.999, y: -0.0015869141}
   m_SizeDelta: {x: 1820, y: 980}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &2084812042
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2084812043}
+  - component: {fileID: 2084812046}
+  - component: {fileID: 2084812045}
+  - component: {fileID: 2084812044}
+  m_Layer: 5
+  m_Name: PlayerImage
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &2084812043
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084812042}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 295410027}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: -705, y: -223.69}
+  m_SizeDelta: {x: 301.5727, y: 301.5725}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!95 &2084812044
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084812042}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: a4261c99b51152e41bf1f5fb1b06d503, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &2084812045
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084812042}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 4334783836991956000, guid: 07faf2185ba96ad4bbcf332618cf1450, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 1
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &2084812046
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084812042}
+  m_CullTransparentMesh: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
