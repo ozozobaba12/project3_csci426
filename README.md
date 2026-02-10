@@ -1,4 +1,4 @@
-# Prototype 03 - Controls
+# Barfight
 
 **CSCI 426 - Game Prototyping**
 
