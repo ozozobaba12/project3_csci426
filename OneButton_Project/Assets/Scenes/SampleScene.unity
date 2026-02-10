@@ -1499,7 +1499,7 @@ MonoBehaviour:
   clockHurtCooldown: 0.4
   clockFlashCount: 4
   clockFlashInterval: 0.1
-  clockDeathAnimDuration: 0.7
+  clockDeathAnimDuration: 0.9
   clockDeathExplosionPrefab: {fileID: 188448375238001462, guid: ceb284bdb4a67b6479894ab011885e9e, type: 3}
   clockExplosionWaitDuration: 1.5
   dragonImage: {fileID: 245312413}
@@ -1522,6 +1522,10 @@ MonoBehaviour:
   lightningSprite: {fileID: -2983090718515566234, guid: 57d5c78849f0330459cbe5a3317fe4d8, type: 3}
   lightningFlashInterval: 0.06
   lightningStartTime: 0.5
+  deathExplosionClip: {fileID: 8300000, guid: a5a931e00053a974e9ecf8cd1493d827, type: 3}
+  deathExplosionVolume: 1
+  phase2TransitionClip: {fileID: 8300000, guid: a0e682ae93fc1214197e8a4a9ec72c2a, type: 3}
+  phase2TransitionVolume: 1
   victoryShakeIntensity: 20
   victoryShakeDuration: 0.2
   graceShakeMax: 8
