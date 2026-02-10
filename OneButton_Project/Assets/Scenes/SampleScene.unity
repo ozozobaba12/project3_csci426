@@ -212,6 +212,7 @@ MonoBehaviour:
   panelColor: {r: 0.15, g: 0.15, b: 0.15, a: 0.95}
   resumeButtonColor: {r: 0.2, g: 0.6, b: 0.9, a: 1}
   exitButtonColor: {r: 0.8, g: 0.2, b: 0.2, a: 1}
+  defaultDeathDuration: 1.5
   bossesDefeated: 0
 --- !u!1 &222066986
 GameObject:
@@ -292,6 +293,42 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &295410026
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 295410027}
+  m_Layer: 5
+  m_Name: BossSprites
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &295410027
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 295410026}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 597345237}
+  m_Father: {fileID: 741008248}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -532,14 +569,14 @@ RectTransform:
   m_GameObject: {fileID: 597345236}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: -1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 741008248}
+  m_Father: {fileID: 295410027}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: -170, y: -173.47}
+  m_AnchoredPosition: {x: 266, y: -201}
   m_SizeDelta: {x: 485.6416, y: 346.9459}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!114 &597345238
@@ -858,7 +895,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 60598193}
-  - {fileID: 597345237}
+  - {fileID: 295410027}
   - {fileID: 703568030}
   - {fileID: 1158373382}
   - {fileID: 1469896499}
@@ -1082,8 +1119,9 @@ MonoBehaviour:
   catchRate: 0.45
   escapeRate: 0.8
   drainDelay: 0
-  lossDelay: 0.8
+  lossDelay: 0.2
   boss: {fileID: 1984216066}
+  isFrozen: 0
 --- !u!4 &835283579
 Transform:
   m_ObjectHideFlags: 0
@@ -1133,8 +1171,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 1.6}
-  m_SizeDelta: {x: 40, y: 40}
+  m_AnchoredPosition: {x: -0.000016212, y: -0.0000066757}
+  m_SizeDelta: {x: 71.8131, y: 69.6923}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &866514451
 MonoBehaviour:
@@ -1158,7 +1196,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: 1bdc644a4a4db4add900a5361efcb699, type: 3}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -1230,7 +1268,7 @@ MonoBehaviour:
   bossIcon: {fileID: 866514450}
   progressBar: {fileID: 1473319077}
   enemyCounterText: {fileID: 1469896500}
-  rotationInterval: 3
+  rotationInterval: 4
   rotationSpeed: 270
   tickShakeInterval: 1
   tickShakeIntensity: 10
@@ -1243,8 +1281,13 @@ MonoBehaviour:
   bounceFactor: 0.4
   tumbleImpulse: 120
   tumbleDamping: 2
-  wolfImage: {fileID: 0}
-  boss1Background: {fileID: 0}
+  wolfImage: {fileID: 597345238}
+  boss1Background: {fileID: 549013411}
+  wolfFlashCount: 4
+  wolfFlashInterval: 0.1
+  wolfDeathAnimDuration: 1
+  victoryShakeIntensity: 20
+  victoryShakeDuration: 0.2
   graceShakeMax: 8
   deathShakeIntensity: 30
   deathShakeDuration: 0.15
