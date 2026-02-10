@@ -59,10 +59,13 @@ public class EndlessDirector : MonoBehaviour
     bool deathScreenShown;
 
     const string HighScoreKey = "BossRushHighScore";
+    const string MasterVolKey = "MasterVolume";
+    Slider masterVolumeSlider;
 
     void Start()
     {
         Time.timeScale = 1f;
+        AudioListener.volume = PlayerPrefs.GetFloat(MasterVolKey, 1f);
         ApplyScaling();
         FindCanvas();
         CreatePauseMenu();
@@ -261,7 +264,7 @@ public class EndlessDirector : MonoBehaviour
         panelRect.anchorMin = new Vector2(0.5f, 0.5f);
         panelRect.anchorMax = new Vector2(0.5f, 0.5f);
         panelRect.pivot = new Vector2(0.5f, 0.5f);
-        panelRect.sizeDelta = new Vector2(400, 260);
+        panelRect.sizeDelta = new Vector2(400, 340);
 
         Image panelImage = panel.AddComponent<Image>();
         panelImage.color = panelColor;
@@ -277,6 +280,12 @@ public class EndlessDirector : MonoBehaviour
 
         // "PAUSED" title
         CreateLabel(panel.transform, "PAUSED", 32, Color.white, 40);
+
+        // Volume label
+        CreateLabel(panel.transform, "VOLUME", 20, new Color(0.8f, 0.8f, 0.8f, 1f), 25);
+
+        // Master volume slider
+        CreateVolumeSlider(panel.transform);
 
         // Resume button
         CreateButton(panel.transform, "RESUME", resumeButtonColor, ResumeGame);
@@ -342,6 +351,88 @@ public class EndlessDirector : MonoBehaviour
         btnText.color = Color.white;
         btnText.alignment = TextAnchor.MiddleCenter;
         btnText.fontStyle = FontStyle.Bold;
+    }
+
+    void CreateVolumeSlider(Transform parent)
+    {
+        float savedVol = PlayerPrefs.GetFloat(MasterVolKey, 1f);
+
+        // Root object for the slider
+        GameObject sliderObj = new GameObject("VolumeSlider");
+        sliderObj.transform.SetParent(parent, false);
+
+        RectTransform sliderRect = sliderObj.AddComponent<RectTransform>();
+        sliderRect.sizeDelta = new Vector2(280, 30);
+
+        Slider slider = sliderObj.AddComponent<Slider>();
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.value = savedVol;
+        slider.wholeNumbers = false;
+
+        // Background
+        GameObject bgObj = new GameObject("Background");
+        bgObj.transform.SetParent(sliderObj.transform, false);
+        RectTransform bgRect = bgObj.AddComponent<RectTransform>();
+        bgRect.anchorMin = new Vector2(0f, 0.25f);
+        bgRect.anchorMax = new Vector2(1f, 0.75f);
+        bgRect.sizeDelta = Vector2.zero;
+        Image bgImg = bgObj.AddComponent<Image>();
+        bgImg.color = new Color(0.3f, 0.3f, 0.3f, 1f);
+
+        // Fill area
+        GameObject fillArea = new GameObject("Fill Area");
+        fillArea.transform.SetParent(sliderObj.transform, false);
+        RectTransform fillAreaRect = fillArea.AddComponent<RectTransform>();
+        fillAreaRect.anchorMin = new Vector2(0f, 0.25f);
+        fillAreaRect.anchorMax = new Vector2(1f, 0.75f);
+        fillAreaRect.sizeDelta = Vector2.zero;
+
+        // Fill
+        GameObject fill = new GameObject("Fill");
+        fill.transform.SetParent(fillArea.transform, false);
+        RectTransform fillRect = fill.AddComponent<RectTransform>();
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = Vector2.one;
+        fillRect.sizeDelta = Vector2.zero;
+        Image fillImg = fill.AddComponent<Image>();
+        fillImg.color = new Color(0.2f, 0.6f, 0.9f, 1f);
+
+        // Handle slide area
+        GameObject handleArea = new GameObject("Handle Slide Area");
+        handleArea.transform.SetParent(sliderObj.transform, false);
+        RectTransform handleAreaRect = handleArea.AddComponent<RectTransform>();
+        handleAreaRect.anchorMin = Vector2.zero;
+        handleAreaRect.anchorMax = Vector2.one;
+        handleAreaRect.sizeDelta = Vector2.zero;
+
+        // Handle
+        GameObject handle = new GameObject("Handle");
+        handle.transform.SetParent(handleArea.transform, false);
+        RectTransform handleRect = handle.AddComponent<RectTransform>();
+        handleRect.sizeDelta = new Vector2(20, 30);
+        Image handleImg = handle.AddComponent<Image>();
+        handleImg.color = Color.white;
+
+        // Wire slider references
+        slider.fillRect = fillRect;
+        slider.handleRect = handleRect;
+        slider.targetGraphic = handleImg;
+
+        // Color transitions for the handle
+        ColorBlock cb = slider.colors;
+        cb.normalColor = Color.white;
+        cb.highlightedColor = new Color(0.9f, 0.9f, 0.9f, 1f);
+        cb.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
+        slider.colors = cb;
+
+        slider.onValueChanged.AddListener((float val) =>
+        {
+            AudioListener.volume = val;
+            PlayerPrefs.SetFloat(MasterVolKey, val);
+        });
+
+        masterVolumeSlider = slider;
     }
 
     // ========================================================

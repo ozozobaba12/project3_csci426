@@ -152,6 +152,14 @@ public class BossfightUI : MonoBehaviour
     [Range(0f, 1f)]
     public float lightningStartTime = 0.5f;
 
+    [Header("Sound Effects")]
+    [Tooltip("Sound played when a boss explosion fires and when the player death animation starts.")]
+    public AudioClip deathExplosionClip;
+    [Range(0f, 1f)] public float deathExplosionVolume = 1f;
+    [Tooltip("Sound played when the Dragon Phase 2 transformation begins.")]
+    public AudioClip phase2TransitionClip;
+    [Range(0f, 1f)] public float phase2TransitionVolume = 1f;
+
     [Header("Boss Defeat Effects")]
     [Tooltip("Pixel displacement of the impact shake when a boss is defeated.")]
     public float victoryShakeIntensity = 20f;
@@ -259,6 +267,9 @@ public class BossfightUI : MonoBehaviour
     float progressBarAngle;
     RectTransform canvasRect;
 
+    // SFX playback
+    AudioSource sfxSource;
+
     // Progress bar & screen shake references
     RectTransform progressBarRect;
     Vector2 progressBarBasePos;
@@ -266,6 +277,10 @@ public class BossfightUI : MonoBehaviour
 
     void Start()
     {
+        // SFX: get or add an AudioSource for one-shot playback
+        sfxSource = GetComponent<AudioSource>();
+        if (sfxSource == null) sfxSource = gameObject.AddComponent<AudioSource>();
+
         if (progressBar != null)
         {
             progressFills = progressBar.GetComponentsInChildren<RawImage>();
@@ -507,6 +522,16 @@ public class BossfightUI : MonoBehaviour
     }
 
     // ============================================================
+    //  SOUND
+    // ============================================================
+
+    void PlaySound(AudioClip clip, float volume)
+    {
+        if (clip != null && sfxSource != null)
+            sfxSource.PlayOneShot(clip, volume);
+    }
+
+    // ============================================================
 
     void Update()
     {
@@ -653,6 +678,7 @@ public class BossfightUI : MonoBehaviour
                         playerDeathPhase = 3;
                         playerDeathSeqTimer = playerDeathAnimDuration;
                         playerAnimator.SetTrigger("IsDead");
+                        PlaySound(deathExplosionClip, deathExplosionVolume);
                     }
                 }
                 break;
@@ -1067,6 +1093,7 @@ public class BossfightUI : MonoBehaviour
                     wolfImage.gameObject.SetActive(false);
 
                     SpawnBossExplosion(wolfDeathExplosionPrefab, wolfImage.rectTransform);
+                    PlaySound(deathExplosionClip, deathExplosionVolume);
                     wolfDeathTimer = explosionWaitDuration;
                     wolfDeathPhase = 3;
                 }
@@ -1338,6 +1365,7 @@ public class BossfightUI : MonoBehaviour
                     clockImage.gameObject.SetActive(false);
 
                     SpawnBossExplosion(clockDeathExplosionPrefab, clockImage.rectTransform);
+                    PlaySound(deathExplosionClip, deathExplosionVolume);
                     clockDeathTimer = clockExplosionWaitDuration;
                     clockDeathPhase = 3;
                 }
@@ -1647,6 +1675,7 @@ public class BossfightUI : MonoBehaviour
                     // Explosion (background stays visible)
                     SpawnBossExplosion(dragonDeathExplosionPrefab,
                         activeImg != null ? activeImg.rectTransform : dragonImage.rectTransform);
+                    PlaySound(deathExplosionClip, deathExplosionVolume);
                     dragonDeathTimer = Mathf.Max(dragonExplosionWaitDuration, 0.5f);
                     dragonDeathPhase = 2;
                 }
@@ -1676,6 +1705,7 @@ public class BossfightUI : MonoBehaviour
                 {
                     dragonTransformPhase = 1;
                     dragonTransformTimer = transformFreezeDuration;
+                    PlaySound(phase2TransitionClip, phase2TransitionVolume);
 
                     // Freeze everything
                     controller.isFrozen = true;
