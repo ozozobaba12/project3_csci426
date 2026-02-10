@@ -863,10 +863,10 @@ MonoBehaviour:
   barHeight: 0.25
   barPosition: 0.5
   barVelocity: 0
-  riseForce: 2.5
+  riseForce: 1
   gravity: 4
   maxSpeed: 3
-  tapImpulse: 0.8
+  tapImpulse: 0.3
   progress: 0.103
   catchRate: 0.45
   escapeRate: 0.8
