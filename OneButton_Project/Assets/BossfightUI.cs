@@ -370,7 +370,7 @@ public class BossfightUI : MonoBehaviour
             wolfAnimator.ResetTrigger("IsDead");
             wolfAnimator.SetBool("IsAttacking", false);
             wolfAnimator.SetBool("IsRunning", false);
-            wolfAnimator.Play("Wolf_Idle", 0, 0f);
+            wolfAnimator.Play("wolf_idle", 0, 0f);
             lastProgress = controller.progress;
         }
     }
@@ -429,7 +429,7 @@ public class BossfightUI : MonoBehaviour
         // Stop all gameplay animations
         wolfAnimator.SetBool("IsAttacking", false);
         wolfAnimator.SetBool("IsRunning", false);
-        wolfAnimator.Play("Wolf_Idle", 0, 0f);
+        wolfAnimator.Play("wolf_idle", 0, 0f);
 
         // Override director's default timer — we'll call FinishBossTransition ourselves
         director.SetDeathTimer(999f);
