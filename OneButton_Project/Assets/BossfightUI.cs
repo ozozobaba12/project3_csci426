@@ -190,6 +190,15 @@ public class BossfightUI : MonoBehaviour
     public AudioClip clockRotateClip;
     [Range(0f, 1f)] public float clockRotateVolume = 1f;
 
+    [Tooltip("Sound played when the Dragon Phase 2 explosion fires.")]
+    public AudioClip dragonTransformExplosionClip;
+    [Range(0f, 1f)] public float dragonTransformExplosionVolume = 1f;
+
+    [Tooltip("Looping soundtrack for Boss 3 (dragon). Starts when the boss appears.")]
+    public AudioClip dragonMusicClip;
+    [Range(0f, 1f)] public float dragonMusicVolume = 0.6f;
+
+
     [Header("Boss Defeat Effects")]
     [Tooltip("Pixel displacement of the impact shake when a boss is defeated.")]
     public float victoryShakeIntensity = 20f;
@@ -1539,9 +1548,25 @@ public class BossfightUI : MonoBehaviour
 
     void SetDragonActive(bool active)
     {
+        // Boss 3 soundtrack
+    if (active && dragonMusicClip != null && musicSource != null)
+    {
+    musicSource.clip = dragonMusicClip;
+    musicSource.volume = dragonMusicVolume;
+    musicSource.Play();
+    }
+    else if (!active && musicSource != null && musicSource.isPlaying)
+    {
+    musicSource.Stop();
+    }
+
+
+        
         dragonActive = active;
         dragonDeathPhase = 0;
         dragonTransformPhase = 0;
+
+        
 
         if (dragonImage != null)
         {
@@ -1822,10 +1847,13 @@ public class BossfightUI : MonoBehaviour
                         dragonPhase2Image.gameObject.SetActive(true);
 
                     SpawnBossExplosion(dragonTransformExplosionPrefab,
-                        dragonImage != null ? dragonImage.rectTransform : null);
+                    dragonImage != null ? dragonImage.rectTransform : null);
+
+                    PlaySound(dragonTransformExplosionClip, dragonTransformExplosionVolume);
 
                     dragonTransformTimer = Mathf.Max(dragonTransformExplosionWait, 0.5f);
                     dragonTransformPhase = 3;
+
                 }
                 break;
 

@@ -1542,6 +1542,10 @@ MonoBehaviour:
   clockTickVolume: 0.96
   clockRotateClip: {fileID: 8300000, guid: 92b349be20192ac4f869b45a5a3f38df, type: 3}
   clockRotateVolume: 0.11
+  dragonTransformExplosionClip: {fileID: 8300000, guid: 828ed8bfed2b14389af9f420b7098b3c, type: 3}
+  dragonTransformExplosionVolume: 0.796
+  dragonMusicClip: {fileID: 8300000, guid: 53e3be3cd28204b3897984f37ee8b254, type: 3}
+  dragonMusicVolume: 0.6
   victoryShakeIntensity: 20
   victoryShakeDuration: 0.2
   graceShakeMax: 8
