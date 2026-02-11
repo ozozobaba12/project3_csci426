@@ -179,6 +179,10 @@ public class BossfightUI : MonoBehaviour
     public AudioClip clockDeathAnimClip;
     [Range(0f, 1f)] public float clockDeathAnimVolume = 1f;
 
+    [Tooltip("Looping soundtrack for Boss 1 (wolf). Starts when the boss appears.")]
+    public AudioClip wolfMusicClip;
+    [Range(0f, 1f)] public float wolfMusicVolume = 0.5f;
+
     [Tooltip("Tick sound played each time the column vibrates (once per second during Boss 2).")]
     public AudioClip clockTickClip;
     [Range(0f, 1f)] public float clockTickVolume = 0.8f;
@@ -296,6 +300,7 @@ public class BossfightUI : MonoBehaviour
 
     // SFX playback
     AudioSource sfxSource;
+    AudioSource musicSource;
 
     // Progress bar & screen shake references
     RectTransform progressBarRect;
@@ -307,6 +312,11 @@ public class BossfightUI : MonoBehaviour
         // SFX: get or add an AudioSource for one-shot playback
         sfxSource = GetComponent<AudioSource>();
         if (sfxSource == null) sfxSource = gameObject.AddComponent<AudioSource>();
+
+        // Separate AudioSource for looping background music
+        musicSource = gameObject.AddComponent<AudioSource>();
+        musicSource.loop = true;
+        musicSource.playOnAwake = false;
 
 
         if (progressBar != null)
@@ -1016,6 +1026,18 @@ public class BossfightUI : MonoBehaviour
     {
         wolfActive = active;
         wolfDeathPhase = 0;
+
+        // Boss 1 soundtrack
+        if (active && wolfMusicClip != null && musicSource != null)
+        {
+            musicSource.clip = wolfMusicClip;
+            musicSource.volume = wolfMusicVolume;
+            musicSource.Play();
+        }
+        else if (!active && musicSource != null && musicSource.isPlaying)
+        {
+            musicSource.Stop();
+        }
 
         if (wolfImage != null)
         {

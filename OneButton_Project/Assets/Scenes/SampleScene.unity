@@ -1525,7 +1525,7 @@ MonoBehaviour:
   deathExplosionClip: {fileID: 8300000, guid: a5a931e00053a974e9ecf8cd1493d827, type: 3}
   deathExplosionVolume: 0.12
   phase2TransitionClip: {fileID: 8300000, guid: a0e682ae93fc1214197e8a4a9ec72c2a, type: 3}
-  phase2TransitionVolume: 0.08
+  phase2TransitionVolume: 0.04
   zapClip: {fileID: 8300000, guid: 129f9967d35cf78458b23047f6f63a07, type: 3}
   zapVolume: 0.32
   hitClip: {fileID: 8300000, guid: 4ee5580949da63144aba7e918bdd8be2, type: 3}
@@ -1536,6 +1536,8 @@ MonoBehaviour:
   clockDeathFlashVolume: 0.35
   clockDeathAnimClip: {fileID: 8300000, guid: bb5a0d004f0c21a4b9bcf62f2e8b689e, type: 3}
   clockDeathAnimVolume: 0.33
+  wolfMusicClip: {fileID: 8300000, guid: 5741a474cee2657499d8424e101a632e, type: 3}
+  wolfMusicVolume: 0.1
   clockTickClip: {fileID: 8300000, guid: ead9e28cf1d844e4189715f7b69bc4a0, type: 3}
   clockTickVolume: 0.96
   clockRotateClip: {fileID: 8300000, guid: 92b349be20192ac4f869b45a5a3f38df, type: 3}
