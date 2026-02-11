@@ -160,6 +160,32 @@ public class BossfightUI : MonoBehaviour
     public AudioClip phase2TransitionClip;
     [Range(0f, 1f)] public float phase2TransitionVolume = 1f;
 
+    [Tooltip("Looping zap sound while the player indicator is on the boss (catching).")]
+    public AudioClip zapClip;
+    [Range(0f, 1f)] public float zapVolume = 0.7f;
+
+    [Tooltip("Impact sound played at the start of any death screen shake (player or boss).")]
+    public AudioClip hitClip;
+    [Range(0f, 1f)] public float hitVolume = 1f;
+
+    [Tooltip("Sound played when Boss 1 (wolf) enters its red-blinking death phase.")]
+    public AudioClip wolfDeathFlashClip;
+    [Range(0f, 1f)] public float wolfDeathFlashVolume = 1f;
+
+    [Tooltip("Sound played when Boss 2 (clock) enters its red-blinking death phase.")]
+    public AudioClip clockDeathFlashClip;
+    [Range(0f, 1f)] public float clockDeathFlashVolume = 1f;
+    [Tooltip("Sound played when Boss 2 (clock) starts its actual death animation (replaces flash sound).")]
+    public AudioClip clockDeathAnimClip;
+    [Range(0f, 1f)] public float clockDeathAnimVolume = 1f;
+
+    [Tooltip("Tick sound played each time the column vibrates (once per second during Boss 2).")]
+    public AudioClip clockTickClip;
+    [Range(0f, 1f)] public float clockTickVolume = 0.8f;
+    [Tooltip("Sound played each time the column rotates 90 degrees during Boss 2.")]
+    public AudioClip clockRotateClip;
+    [Range(0f, 1f)] public float clockRotateVolume = 1f;
+
     [Header("Boss Defeat Effects")]
     [Tooltip("Pixel displacement of the impact shake when a boss is defeated.")]
     public float victoryShakeIntensity = 20f;
@@ -234,6 +260,7 @@ public class BossfightUI : MonoBehaviour
     RectTransform lightningRT;
     float lightningFlashTimer;
     bool lightningFlashOn;
+    bool zapPlayedThisCast;
 
     // Universal boss defeat effects
     bool defeatEffectsStarted;
@@ -280,6 +307,7 @@ public class BossfightUI : MonoBehaviour
         // SFX: get or add an AudioSource for one-shot playback
         sfxSource = GetComponent<AudioSource>();
         if (sfxSource == null) sfxSource = gameObject.AddComponent<AudioSource>();
+
 
         if (progressBar != null)
         {
@@ -531,6 +559,13 @@ public class BossfightUI : MonoBehaviour
             sfxSource.PlayOneShot(clip, volume);
     }
 
+    /// <summary>Stops the one-shot sfxSource if it's currently playing the given clip.</summary>
+    void StopSound()
+    {
+        if (sfxSource != null && sfxSource.isPlaying)
+            sfxSource.Stop();
+    }
+
     // ============================================================
 
     void Update()
@@ -611,6 +646,9 @@ public class BossfightUI : MonoBehaviour
     {
         playerDeathPhase = 1; // screen shake
         playerDeathSeqTimer = deathShakeDuration;
+
+        // Death impact sound
+        PlaySound(hitClip, hitVolume);
 
         // Stop gameplay animation — snap to idle
         playerAnimator.SetBool("IsAttacking", false);
@@ -764,6 +802,13 @@ public class BossfightUI : MonoBehaviour
         {
             lightningImage.enabled = true;
 
+            // Play zap once at the start of each lightning cast
+            if (!zapPlayedThisCast)
+            {
+                zapPlayedThisCast = true;
+                PlaySound(zapClip, zapVolume);
+            }
+
             // Flash on/off rapidly
             lightningFlashTimer -= Time.deltaTime;
             if (lightningFlashTimer <= 0f)
@@ -783,6 +828,7 @@ public class BossfightUI : MonoBehaviour
             lightningImage.enabled = false;
             lightningFlashTimer = 0f;
             lightningFlashOn = true; // start visible on next attack
+            zapPlayedThisCast = false; // reset so next cast triggers zap again
         }
     }
 
@@ -915,6 +961,9 @@ public class BossfightUI : MonoBehaviour
         {
             defeatEffectsStarted = true;
             victoryShakeTimer = victoryShakeDuration;
+
+            // Boss death impact sound
+            PlaySound(hitClip, hitVolume);
         }
 
         // Brief punchy screen-wide shake (uses screenShakeWrapper so nothing overwrites it)
@@ -1045,6 +1094,9 @@ public class BossfightUI : MonoBehaviour
         wolfFlashCounter = 0;
         wolfFlashOn = false;
         wolfDeathTimer = wolfFlashInterval;
+
+        // Sound at the start of the red-blinking phase
+        PlaySound(wolfDeathFlashClip, wolfDeathFlashVolume);
 
         // Stop all gameplay animations
         wolfAnimator.SetBool("IsAttacking", false);
@@ -1312,6 +1364,9 @@ public class BossfightUI : MonoBehaviour
         clockFlashOn = false;
         clockDeathTimer = clockFlashInterval;
 
+        // Sound at the start of the red-blinking phase
+        PlaySound(clockDeathFlashClip, clockDeathFlashVolume);
+
         // Stop rotation and shake immediately — snaps column back to normal
         SetRotationActive(false);
 
@@ -1353,6 +1408,10 @@ public class BossfightUI : MonoBehaviour
                         clockDeathPhase = 2;
                         clockDeathTimer = clockDeathAnimDuration;
                         clockAnimator.SetTrigger("IsDead");
+
+                        // Cut flash sound, play death anim sound
+                        StopSound();
+                        PlaySound(clockDeathAnimClip, clockDeathAnimVolume);
                     }
                 }
                 break;
@@ -1415,6 +1474,7 @@ public class BossfightUI : MonoBehaviour
         {
             rotationTimer -= rotationInterval;
             targetAngle += 90f;
+            PlaySound(clockRotateClip, clockRotateVolume);
         }
 
         // Smooth rotation
@@ -1434,6 +1494,7 @@ public class BossfightUI : MonoBehaviour
             tickTimer -= tickShakeInterval;
             tickShaking = true;
             tickShakeTimer = tickShakeDuration;
+            PlaySound(clockTickClip, clockTickVolume);
         }
 
         if (tickShaking)

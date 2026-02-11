@@ -64,6 +64,9 @@ public class BossfightController : MonoBehaviour
     bool hasStarted;
     public bool HasStarted => hasStarted;
 
+    /// <summary>True when the boss is inside the player's bar (actively catching).</summary>
+    public bool IsCatching { get; private set; }
+
     // Set by EndlessDirector when boss is defeated — freezes all input and progress
     [HideInInspector] public bool isFrozen;
 
@@ -142,7 +145,10 @@ public class BossfightController : MonoBehaviour
     void UpdateProgress()
     {
         if (!hasStarted || isFrozen)
+        {
+            IsCatching = false;
             return;
+        }
 
         float half = barHeight * 0.5f;
 
@@ -150,6 +156,8 @@ public class BossfightController : MonoBehaviour
         bool inside =
             boss.position > barPosition - half &&
             boss.position < barPosition + half;
+
+        IsCatching = inside;
 
         if (inside)
         {

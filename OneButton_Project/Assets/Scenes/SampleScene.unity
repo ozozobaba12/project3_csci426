@@ -203,12 +203,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EndlessDirector
   controller: {fileID: 835283578}
   boss: {fileID: 1984216066}
-  baseCatchRate: 0.25
+  baseCatchRate: 0.45
   catchRatePerBoss: 0
-  baseEscapeRate: 0.2
+  baseEscapeRate: 0.6
   escapeRatePerBoss: 0
   baseBarHeight: 0.25
-  barHeightDecreasePerBoss: 0
+  barHeightDecreasePerBoss: 0.01
   minBarHeight: 0.15
   backgroundColor: {r: 0, g: 0, b: 0, a: 0.85}
   panelColor: {r: 0.15, g: 0.15, b: 0.15, a: 0.95}
@@ -1315,12 +1315,12 @@ MonoBehaviour:
   barVelocity: 0
   riseForce: 1
   gravity: 4
-  maxSpeed: 3
+  maxSpeed: 3.2
   tapImpulse: 0.3
   progress: 0.103
   catchRate: 0.45
-  escapeRate: 0.8
-  drainDelay: 0
+  escapeRate: 0.6
+  drainDelay: 0.2
   lossDelay: 0.4
   boss: {fileID: 1984216066}
   isFrozen: 0
@@ -1480,7 +1480,7 @@ MonoBehaviour:
   gravityOffDuration: 3
   gravityAccel: 800
   floatAccel: 300
-  bounceFactor: 0.4
+  bounceFactor: 0.71
   tumbleImpulse: 120
   tumbleDamping: 2
   phase2BarShrink: 0
@@ -1499,7 +1499,7 @@ MonoBehaviour:
   clockHurtCooldown: 0.4
   clockFlashCount: 4
   clockFlashInterval: 0.1
-  clockDeathAnimDuration: 0.9
+  clockDeathAnimDuration: 1.2
   clockDeathExplosionPrefab: {fileID: 188448375238001462, guid: ceb284bdb4a67b6479894ab011885e9e, type: 3}
   clockExplosionWaitDuration: 1.5
   dragonImage: {fileID: 245312413}
@@ -1523,9 +1523,23 @@ MonoBehaviour:
   lightningFlashInterval: 0.06
   lightningStartTime: 0.5
   deathExplosionClip: {fileID: 8300000, guid: a5a931e00053a974e9ecf8cd1493d827, type: 3}
-  deathExplosionVolume: 1
+  deathExplosionVolume: 0.12
   phase2TransitionClip: {fileID: 8300000, guid: a0e682ae93fc1214197e8a4a9ec72c2a, type: 3}
-  phase2TransitionVolume: 1
+  phase2TransitionVolume: 0.08
+  zapClip: {fileID: 8300000, guid: 129f9967d35cf78458b23047f6f63a07, type: 3}
+  zapVolume: 0.32
+  hitClip: {fileID: 8300000, guid: 4ee5580949da63144aba7e918bdd8be2, type: 3}
+  hitVolume: 0.08
+  wolfDeathFlashClip: {fileID: 8300000, guid: cd31234d9778bcd4cb33406a54cce151, type: 3}
+  wolfDeathFlashVolume: 0.05
+  clockDeathFlashClip: {fileID: 0}
+  clockDeathFlashVolume: 0.35
+  clockDeathAnimClip: {fileID: 8300000, guid: bb5a0d004f0c21a4b9bcf62f2e8b689e, type: 3}
+  clockDeathAnimVolume: 0.33
+  clockTickClip: {fileID: 8300000, guid: ead9e28cf1d844e4189715f7b69bc4a0, type: 3}
+  clockTickVolume: 0.96
+  clockRotateClip: {fileID: 8300000, guid: 92b349be20192ac4f869b45a5a3f38df, type: 3}
+  clockRotateVolume: 0.11
   victoryShakeIntensity: 20
   victoryShakeDuration: 0.2
   graceShakeMax: 8
@@ -1953,7 +1967,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BossAI
   position: 0.5
   baseSpeed: 0.4
-  speedPerDifficulty: 0.3
+  speedPerDifficulty: 0.2
   difficultyCurve: 0.65
   baseDecisionTime: 1.2
   minDecisionTime: 0.6
