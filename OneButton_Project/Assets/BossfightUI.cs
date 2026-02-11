@@ -183,6 +183,12 @@ public class BossfightUI : MonoBehaviour
     public AudioClip wolfMusicClip;
     [Range(0f, 1f)] public float wolfMusicVolume = 0.5f;
 
+    [Tooltip("Looping soundtrack for Boss 3 Phase 1 (dragon, before transformation).")]
+    public AudioClip dragonPhase1MusicClip;
+    [Range(0f, 1f)] public float dragonPhase1MusicVolume = 0.5f;
+    [Tooltip("Looping soundtrack for Boss 3 Phase 2 (dragon, after transformation).")]
+    public AudioClip dragonPhase2MusicClip;
+    [Range(0f, 1f)] public float dragonPhase2MusicVolume = 0.5f;
     [Tooltip("Tick sound played each time the column vibrates (once per second during Boss 2).")]
     public AudioClip clockTickClip;
     [Range(0f, 1f)] public float clockTickVolume = 0.8f;
@@ -1543,6 +1549,18 @@ public class BossfightUI : MonoBehaviour
         dragonDeathPhase = 0;
         dragonTransformPhase = 0;
 
+        // Boss 3 Phase 1 soundtrack
+        if (active && dragonPhase1MusicClip != null && musicSource != null)
+        {
+            musicSource.clip = dragonPhase1MusicClip;
+            musicSource.volume = dragonPhase1MusicVolume;
+            musicSource.Play();
+        }
+        else if (!active && musicSource != null && musicSource.isPlaying)
+        {
+            musicSource.Stop();
+        }
+
         if (dragonImage != null)
         {
             dragonImage.gameObject.SetActive(active);
@@ -1790,6 +1808,10 @@ public class BossfightUI : MonoBehaviour
                     dragonTransformTimer = transformFreezeDuration;
                     PlaySound(phase2TransitionClip, phase2TransitionVolume);
 
+                    // Stop Phase 1 music during the cutscene
+                    if (musicSource != null && musicSource.isPlaying)
+                        musicSource.Stop();
+
                     // Freeze everything
                     controller.isFrozen = true;
                     boss.isActive = false;
@@ -1823,6 +1845,14 @@ public class BossfightUI : MonoBehaviour
 
                     SpawnBossExplosion(dragonTransformExplosionPrefab,
                         dragonImage != null ? dragonImage.rectTransform : null);
+
+                    // Start Phase 2 music right with the explosion
+                    if (dragonPhase2MusicClip != null && musicSource != null)
+                    {
+                        musicSource.clip = dragonPhase2MusicClip;
+                        musicSource.volume = dragonPhase2MusicVolume;
+                        musicSource.Play();
+                    }
 
                     dragonTransformTimer = Mathf.Max(dragonTransformExplosionWait, 0.5f);
                     dragonTransformPhase = 3;
